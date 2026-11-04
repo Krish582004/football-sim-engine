@@ -3,25 +3,26 @@ from simulation_engine import SimulationEngine
 
 def main():
     engine = SimulationEngine()
-    print("Starting 60Hz Deterministic Match Engine (Python)...")
+    print("Starting Phase 2: Magnus Aerodynamics Test...")
 
-    TICK_RATE = 1 / 60.0  # 16.66ms per tick
+    TICK_RATE = 1 / 60.0  
 
-    # Run for 60 frames (1 second of game time)
-    for _ in range(60):
+    # Run for 90 frames (1.5 seconds) to watch the bounce and curve
+    for _ in range(90):
         start_time = time.perf_counter()
-
         engine.step()
         state = engine.get_current_state()
-        print(f"Tick: {state.tick_number:02d} | Hash: {state.state_checksum}")
+        
+        # Print the Ball's 3D Trajectory
+        x = state.ball.pos_x
+        y = state.ball.pos_y
+        z = state.ball.pos_z
+        print(f"Tick: {state.tick_number:02d} | Ball Pos -> X: {x:5.2f}, Y: {y:5.2f}, Z: {z:5.2f}")
 
-        # Hardware-accurate sleep to maintain 60Hz
         elapsed = time.perf_counter() - start_time
         sleep_time = TICK_RATE - elapsed
         if sleep_time > 0:
             time.sleep(sleep_time)
-
-    print("Phase 1 Engine test completed successfully!")
 
 if __name__ == "__main__":
     main()

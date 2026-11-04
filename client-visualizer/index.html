@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VectorPitch 3D Engine</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        #telemetry {
+            position: absolute; top: 10px; left: 10px;
+            color: white; font-family: monospace; background: rgba(0,0,0,0.7);
+            padding: 10px; border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="telemetry">Waiting for server...</div>
+    
+    <!-- Import Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        // 1. Setup 3D Scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. Build the Pitch (Green Plane)
+        const pitchGeometry = new THREE.PlaneGeometry(105, 68); // Regulation dimensions
+        const pitchMaterial = new THREE.MeshBasicMaterial({ color: 0x2e8b57, side: THREE.DoubleSide });
+        const pitch = new THREE.Mesh(pitchGeometry, pitchMaterial);
+        pitch.rotation.x = -Math.PI / 2; // Lay flat
+        scene.add(pitch);
+
+        // 3. Build the Ball (White Sphere)
+        const ballGeometry = new THREE.SphereGeometry(0.11, 32, 32);
+        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+        scene.add(ballMesh);
+
+        // Position Camera (Behind the kicker)
+        camera.position.set(-5, 3, 0);
+        camera.lookAt(15, 0, 0);
+
+        // 4. Connect to Python Backend via WebSockets
+        const ws = new WebSocket("ws://localhost:8000/ws");
+        const telemetry = document.getElementById("telemetry");
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // Map Python simulation coordinates to Three.js coordinates
+            ballMesh.position.set(data.ball.x, data.ball.y, data.ball.z);
+            
+            telemetry.innerHTML = `Tick: ${data.tick} <br>
+                                   Ball X: ${data.ball.x.toFixed(2)} <br>
+                                   Ball Y: ${data.ball.y.toFixed(2)} <br>
+                                   Ball Z: ${data.ball.z.toFixed(2)}`;
+        };
+
+        // 5. Render Loop (Runs at monitor refresh rate, decoupled from physics)
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Add this line so the camera smoothly tracks the ball!
+            camera.lookAt(ballMesh.position);
+            
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
