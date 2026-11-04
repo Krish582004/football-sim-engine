@@ -27,14 +27,6 @@ async def match_stream(websocket: WebSocket):
             engine.step()
             state = engine.get_current_state()
             
-            # 2. Reset the ball every 90 ticks (1.5s) so you can watch the kick repeatedly
-            if state.tick_number % 90 == 0:
-                engine.current_match_state.ball.pos_x = 0.0
-                engine.current_match_state.ball.pos_y = 0.11
-                engine.current_match_state.ball.pos_z = 0.0
-                engine.current_match_state.ball.vel_x = 25.0
-                engine.current_match_state.ball.vel_y = 12.0
-                engine.current_match_state.ball.vel_z = 0.0
                 
             # 3. Serialize coordinates to JSON
             payload = {
@@ -43,7 +35,15 @@ async def match_stream(websocket: WebSocket):
                     "x": state.ball.pos_x,
                     "y": state.ball.pos_y,
                     "z": state.ball.pos_z
-                }
+                },
+                "players": [
+                    {
+                        "x": p.pos_x, 
+                        "y": p.pos_y, 
+                        "z": p.pos_z, 
+                        "team": p.tactical_role
+                    } for p in state.players
+                ]
             }
             
             # 4. Stream to browser

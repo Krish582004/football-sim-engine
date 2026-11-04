@@ -19,53 +19,67 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
     <script>
-        // 1. Setup 3D Scene
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 2. Build the Pitch (Green Plane)
-        const pitchGeometry = new THREE.PlaneGeometry(105, 68); // Regulation dimensions
+        // Pitch
+        const pitchGeometry = new THREE.PlaneGeometry(105, 68);
         const pitchMaterial = new THREE.MeshBasicMaterial({ color: 0x2e8b57, side: THREE.DoubleSide });
         const pitch = new THREE.Mesh(pitchGeometry, pitchMaterial);
-        pitch.rotation.x = -Math.PI / 2; // Lay flat
+        pitch.rotation.x = -Math.PI / 2;
         scene.add(pitch);
 
-        // 3. Build the Ball (White Sphere)
-        const ballGeometry = new THREE.SphereGeometry(0.11, 32, 32);
+        // Ball
+        const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32); // Made ball slightly larger to see
         const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
         scene.add(ballMesh);
 
-        // Position Camera (Behind the kicker)
-        camera.position.set(-5, 3, 0);
-        camera.lookAt(15, 0, 0);
+        // Players Array
+        const playerMeshes = [];
+        const playerGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 16);
+        const matBlue = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+        const matRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-        // 4. Connect to Python Backend via WebSockets
+        for (let i = 0; i < 10; i++) {
+            // First 5 are Blue (Team 0), last 5 are Red (Team 1)
+            const mesh = new THREE.Mesh(playerGeometry, i < 5 ? matBlue : matRed);
+            scene.add(mesh);
+            playerMeshes.push(mesh);
+        }
+
+        // Camera High Tactical View
+        camera.position.set(0, 40, 45);
+        camera.lookAt(0, 0, 0);
+
         const ws = new WebSocket("ws://localhost:8000/ws");
         const telemetry = document.getElementById("telemetry");
 
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
             
-            // Map Python simulation coordinates to Three.js coordinates
+            // Update Ball
             ballMesh.position.set(data.ball.x, data.ball.y, data.ball.z);
             
-            telemetry.innerHTML = `Tick: ${data.tick} <br>
-                                   Ball X: ${data.ball.x.toFixed(2)} <br>
-                                   Ball Y: ${data.ball.y.toFixed(2)} <br>
-                                   Ball Z: ${data.ball.z.toFixed(2)}`;
+            // Update Players
+            for (let i = 0; i < 10; i++) {
+                if (data.players[i]) {
+                    playerMeshes[i].position.set(
+                        data.players[i].x, 
+                        data.players[i].y, 
+                        data.players[i].z
+                    );
+                }
+            }
+            
+            telemetry.innerHTML = `Tick: ${data.tick} | 5v5 Live Match`;
         };
 
-        // 5. Render Loop (Runs at monitor refresh rate, decoupled from physics)
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Add this line so the camera smoothly tracks the ball!
-            camera.lookAt(ballMesh.position);
-            
             renderer.render(scene, camera);
         }
         animate();
