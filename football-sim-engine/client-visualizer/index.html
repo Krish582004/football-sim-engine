@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VectorPitch 3D Engine</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        #telemetry {
+            position: absolute; top: 10px; left: 10px;
+            color: white; font-family: monospace; background: rgba(0,0,0,0.7);
+            padding: 10px; border-radius: 5px;
+        }
+        #scoreboard {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85); color: white; font-family: sans-serif;
+            font-size: 28px; font-weight: bold; padding: 10px 40px;
+            border-radius: 8px; border: 2px solid #555;
+            display: flex; gap: 20px; align-items: center;
+        }
+        .score-blue { color: #4da6ff; }
+        .score-red { color: #ff4d4d; }
+    </style>
+</head>
+<body>
+    <div id="telemetry">Waiting for server...</div>
+    <div id="telemetry">Waiting for server...</div>
+    <div id="scoreboard">
+        <span class="score-blue">BLUE <span id="score-b">0</span></span> 
+        <span>-</span> 
+        <span class="score-red"><span id="score-r">0</span> RED</span>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const pitchGeometry = new THREE.PlaneGeometry(105, 68);
+        const pitchMaterial = new THREE.MeshBasicMaterial({ color: 0x2e8b57, side: THREE.DoubleSide });
+        const pitch = new THREE.Mesh(pitchGeometry, pitchMaterial);
+        pitch.rotation.x = -Math.PI / 2;
+        scene.add(pitch);
+
+        // --- NEW: DRAW THE GOALPOSTS ---
+        function createGoal(xPos) {
+            const goalGroup = new THREE.Group();
+            const postGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.44, 8); // 2.44m high
+            const barGeo = new THREE.CylinderGeometry(0.2, 0.2, 7.32, 8);  // 7.32m wide
+            const goalMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White posts
+
+            const leftPost = new THREE.Mesh(postGeo, goalMat);
+            leftPost.position.set(0, 1.22, 3.66);
+            
+            const rightPost = new THREE.Mesh(postGeo, goalMat);
+            rightPost.position.set(0, 1.22, -3.66);
+            
+            const crossbar = new THREE.Mesh(barGeo, goalMat);
+            crossbar.rotation.x = Math.PI / 2;
+            crossbar.position.set(0, 2.44, 0);
+
+            goalGroup.add(leftPost);
+            goalGroup.add(rightPost);
+            goalGroup.add(crossbar);
+            
+            goalGroup.position.set(xPos, 0, 0);
+            scene.add(goalGroup);
+        }
+        
+        // Add Left Goal and Right Goal at the pitch edges
+        createGoal(-52.5);
+        createGoal(52.5);
+        // -------------------------------
+
+        const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32); 
+        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+        scene.add(ballMesh);
+
+        const playerMeshes = [];
+        const playerGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 16);
+        const matBlue = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+        const matRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const matHuman = new THREE.MeshBasicMaterial({ color: 0xffd700 }); // GOLD for you
+
+        for (let i = 0; i < 10; i++) {
+            let mat = i < 5 ? matBlue : matRed;
+            if (i === 0) mat = matHuman; // Color Player 0 gold
+            const mesh = new THREE.Mesh(playerGeometry, mat);
+            scene.add(mesh);
+            playerMeshes.push(mesh);
+        }
+
+        camera.position.set(0, 40, 45);
+        camera.lookAt(0, 0, 0);
+
+        const ws = new WebSocket("ws://localhost:8000/ws");
+        const telemetry = document.getElementById("telemetry");
+
+        // --- NEW: Input Controller ---
+        const keys = { w: false, a: false, s: false, d: false };
+        window.addEventListener("keydown", (e) => {
+            if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true;
+        });
+        window.addEventListener("keyup", (e) => {
+            if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false;
+        });
+
+        // Broadcast WASD inputs to Python every 16ms
+        setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                let dx = 0; let dz = 0;
+                if (keys.w) dz = -1;
+                if (keys.s) dz = 1;
+                if (keys.a) dx = -1;
+                if (keys.d) dx = 1;
+                ws.send(JSON.stringify({ dx: dx, dz: dz }));
+            }
+        }, 16);
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // --- NEW: Update Scoreboard UI ---
+            document.getElementById("score-b").innerText = data.score.blue;
+            document.getElementById("score-r").innerText = data.score.red;
+            
+            ballMesh.position.set(data.ball.x, data.ball.y, data.ball.z);
+            // ... (rest of your player update loop remains the same)
+            
+            for (let i = 0; i < 10; i++) {
+                if (data.players[i]) {
+                    playerMeshes[i].position.set(data.players[i].x, data.players[i].y, data.players[i].z);
+                }
+            }
+            
+            telemetry.innerHTML = `Tick: ${data.tick} | WASD to move the Gold Player!`;
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
