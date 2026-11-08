@@ -6,16 +6,32 @@
     <style>
         body { margin: 0; overflow: hidden; background-color: #87CEEB; }
         #telemetry {
-            position: absolute; top: 10px; left: 10px;
-            color: white; font-family: monospace; background: rgba(0,0,0,0.7);
-            padding: 10px; border-radius: 5px;
+            position: absolute; bottom: 20px; left: 20px;
+            color: #00ff00; font-family: 'Courier New', Courier, monospace; 
+            background: rgba(0, 20, 0, 0.85); padding: 15px; 
+            border-radius: 5px; border: 1px solid #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+            font-size: 14px; line-height: 1.5; pointer-events: none;
         }
+        .telemetry-title { color: white; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #00ff00; }
+        #scoreboard {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85); color: white; font-family: sans-serif;
+            font-size: 28px; font-weight: bold; padding: 10px 40px;
+            border-radius: 8px; border: 2px solid #555;
+            display: flex; gap: 20px; align-items: center;
+        }
+        .score-blue { color: #4da6ff; }
+        .score-red { color: #ff4d4d; }
     </style>
 </head>
 <body>
     <div id="telemetry">Waiting for server...</div>
-    
-    <!-- Import Three.js -->
+    <div id="scoreboard">
+        <span class="score-blue">BLUE <span id="score-b">0</span></span> 
+        <span>-</span> 
+        <span class="score-red"><span id="score-r">0</span> RED</span>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
     <script>
@@ -25,57 +41,196 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Pitch
         const pitchGeometry = new THREE.PlaneGeometry(105, 68);
         const pitchMaterial = new THREE.MeshBasicMaterial({ color: 0x2e8b57, side: THREE.DoubleSide });
         const pitch = new THREE.Mesh(pitchGeometry, pitchMaterial);
         pitch.rotation.x = -Math.PI / 2;
         scene.add(pitch);
 
-        // Ball
-        const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32); // Made ball slightly larger to see
+        // --- NEW: DRAW THE GOALPOSTS ---
+        function createGoal(xPos) {
+            const goalGroup = new THREE.Group();
+            const postGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.44, 8); // 2.44m high
+            const barGeo = new THREE.CylinderGeometry(0.2, 0.2, 7.32, 8);  // 7.32m wide
+            const goalMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White posts
+
+            const leftPost = new THREE.Mesh(postGeo, goalMat);
+            leftPost.position.set(0, 1.22, 3.66);
+            
+            const rightPost = new THREE.Mesh(postGeo, goalMat);
+            rightPost.position.set(0, 1.22, -3.66);
+            
+            const crossbar = new THREE.Mesh(barGeo, goalMat);
+            crossbar.rotation.x = Math.PI / 2;
+            crossbar.position.set(0, 2.44, 0);
+
+            goalGroup.add(leftPost);
+            goalGroup.add(rightPost);
+            goalGroup.add(crossbar);
+            
+            goalGroup.position.set(xPos, 0, 0);
+            scene.add(goalGroup);
+        }
+        
+        // Add Left Goal and Right Goal at the pitch edges
+        createGoal(-52.5);
+        createGoal(52.5);
+        // -------------------------------
+
+        const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32);
         const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
         scene.add(ballMesh);
 
-        // Players Array
         const playerMeshes = [];
         const playerGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 16);
         const matBlue = new THREE.MeshBasicMaterial({ color: 0x0000ff });
         const matRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const matHuman = new THREE.MeshBasicMaterial({ color: 0xffd700 }); // GOLD for you
 
         for (let i = 0; i < 10; i++) {
-            // First 5 are Blue (Team 0), last 5 are Red (Team 1)
-            const mesh = new THREE.Mesh(playerGeometry, i < 5 ? matBlue : matRed);
+            let mat = i < 5 ? matBlue : matRed;
+            if (i === 0) mat = matHuman; // Color Player 0 gold
+            const mesh = new THREE.Mesh(playerGeometry, mat);
             scene.add(mesh);
             playerMeshes.push(mesh);
         }
 
-        // Camera High Tactical View
+        // --- NEW: DRAW FIFA PITCH MARKINGS ---
+        function createPitchMarkings() {
+            const markings = new THREE.Group();
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+
+            // Helper to draw straight lines slightly above the grass (y=0.02) to prevent z-fighting
+            function drawLine(x1, z1, x2, z2) {
+                const points = [new THREE.Vector3(x1, 0.02, z1), new THREE.Vector3(x2, 0.02, z2)];
+                const geo = new THREE.BufferGeometry().setFromPoints(points);
+                markings.add(new THREE.Line(geo, lineMaterial));
+            }
+
+            // 1. Outer Boundaries (105m x 68m)
+            drawLine(-52.5, -34, 52.5, -34); // Top Touchline
+            drawLine(-52.5, 34, 52.5, 34);   // Bottom Touchline
+            drawLine(-52.5, -34, -52.5, 34); // Left Goal Line
+            drawLine(52.5, -34, 52.5, 34);   // Right Goal Line
+
+            // 2. Halfway Line
+            drawLine(0, -34, 0, 34);
+
+            // 3. Center Circle (9.15m radius) & Center Spot
+            const circleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            
+            const circleGeo = new THREE.RingGeometry(9.15, 9.35, 64);
+            const centerCircle = new THREE.Mesh(circleGeo, circleMat);
+            centerCircle.rotation.x = -Math.PI / 2;
+            centerCircle.position.y = 0.02;
+            markings.add(centerCircle);
+
+            const dotGeo = new THREE.CircleGeometry(0.3, 16);
+            const centerDot = new THREE.Mesh(dotGeo, circleMat);
+            centerDot.rotation.x = -Math.PI / 2;
+            centerDot.position.y = 0.02;
+            markings.add(centerDot);
+
+            // 4. Penalty Boxes (16.5m deep, 40.32m wide)
+            // Left Box
+            drawLine(-52.5, -20.16, -36, -20.16); // Top edge
+            drawLine(-52.5, 20.16, -36, 20.16);   // Bottom edge
+            drawLine(-36, -20.16, -36, 20.16);    // Front edge
+
+            // Right Box
+            drawLine(52.5, -20.16, 36, -20.16);
+            drawLine(52.5, 20.16, 36, 20.16);
+            drawLine(36, -20.16, 36, 20.16);
+
+            scene.add(markings);
+        }
+        createPitchMarkings();
+        // -------------------------------------
+
+        // --- NEW: Possession Ring Visualizer ---
+        const ringGeo = new THREE.RingGeometry(0.5, 0.7, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
+        const possessionRing = new THREE.Mesh(ringGeo, ringMat);
+        possessionRing.rotation.x = -Math.PI / 2; // Lay flat on the grass
+        possessionRing.position.y = 0.05; // Slightly above the pitch
+        possessionRing.visible = false;
+        scene.add(possessionRing);
+
         camera.position.set(0, 40, 45);
         camera.lookAt(0, 0, 0);
 
         const ws = new WebSocket("ws://localhost:8000/ws");
         const telemetry = document.getElementById("telemetry");
 
+        // --- UPGRADED: EAFC Input Controller ---
+        const keys = { w: false, a: false, s: false, d: false, shift: false, " ": false };
+        window.addEventListener("keydown", (e) => {
+            const k = e.key.toLowerCase();
+            if(keys.hasOwnProperty(k)) keys[k] = true;
+        });
+        window.addEventListener("keyup", (e) => {
+            const k = e.key.toLowerCase();
+            if(keys.hasOwnProperty(k)) keys[k] = false;
+        });
+
+        // Broadcast inputs to Python every 16ms
+        setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                let dx = 0; let dz = 0;
+                if (keys.w) dz = -1;
+                if (keys.s) dz = 1;
+                if (keys.a) dx = -1;
+                if (keys.d) dx = 1;
+                
+                ws.send(JSON.stringify({ 
+                    dx: dx, 
+                    dz: dz,
+                    sprint: keys.shift, // Hold Shift to sprint
+                    shoot: keys[" "]    // Tap Space to shoot
+                }));
+            }
+        }, 16);
+
+        let lastTime = performance.now();
+
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
             
-            // Update Ball
+            // Calculate Ping / Tick Rate
+            const now = performance.now();
+            const msPerTick = (now - lastTime).toFixed(1);
+            lastTime = now;
+
+            // Update Scoreboard UI
+            document.getElementById("score-b").innerText = data.score.blue;
+            document.getElementById("score-r").innerText = data.score.red;
+            
             ballMesh.position.set(data.ball.x, data.ball.y, data.ball.z);
             
-            // Update Players
+            possessionRing.visible = false; // Hide ring by default
+
             for (let i = 0; i < 10; i++) {
                 if (data.players[i]) {
-                    playerMeshes[i].position.set(
-                        data.players[i].x, 
-                        data.players[i].y, 
-                        data.players[i].z
-                    );
+                    playerMeshes[i].position.set(data.players[i].x, data.players[i].y, data.players[i].z);
+                    
+                    // If this player has the ball, move the ring under them
+                    if (data.players[i].has_possession) {
+                        possessionRing.position.x = data.players[i].x;
+                        possessionRing.position.z = data.players[i].z;
+                        possessionRing.visible = true;
+                    }
                 }
             }
             
-            telemetry.innerHTML = `Tick: ${data.tick} | 5v5 Live Match`;
+            // Update Engineering HUD
+            telemetry.innerHTML = `
+                <div class="telemetry-title">SERVER TELEMETRY</div>
+                Tick Rate : ${msPerTick} ms<br>
+                Tick #    : ${data.tick}<br>
+                State Hash: ${data.hash}<br>
+                Client    : Connected (WebSocket)
+            `;
         };
 
         function animate() {
