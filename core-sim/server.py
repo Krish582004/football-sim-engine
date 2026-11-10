@@ -28,11 +28,12 @@ async def match_stream(websocket: WebSocket):
                 data = await websocket.receive_text()
                 input_payload = json.loads(data)
                 
-                # Inject WASD and Action commands into Player 0
                 engine.current_match_state.players[0].input_dx = input_payload.get("dx", 0)
                 engine.current_match_state.players[0].input_dz = input_payload.get("dz", 0)
                 engine.current_match_state.players[0].input_sprint = input_payload.get("sprint", False)
                 engine.current_match_state.players[0].input_shoot = input_payload.get("shoot", False)
+                engine.current_match_state.players[0].input_pass = input_payload.get("pass", False)
+                engine.current_match_state.players[0].input_lofted_pass = input_payload.get("lofted_pass", False) # NEW
         except WebSocketDisconnect:
             pass
 

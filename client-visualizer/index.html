@@ -164,13 +164,13 @@
         const telemetry = document.getElementById("telemetry");
 
         // --- UPGRADED: EAFC Input Controller ---
-        const keys = { w: false, a: false, s: false, d: false, shift: false, " ": false };
-        window.addEventListener("keydown", (e) => {
-            const k = e.key.toLowerCase();
+        const keys = { w: false, a: false, s: false, d: false, shift: false, " ": false, e: false, f: false };
+        window.addEventListener("keydown", (ev) => {
+            const k = ev.key.toLowerCase();
             if(keys.hasOwnProperty(k)) keys[k] = true;
         });
-        window.addEventListener("keyup", (e) => {
-            const k = e.key.toLowerCase();
+        window.addEventListener("keyup", (ev) => {
+            const k = ev.key.toLowerCase();
             if(keys.hasOwnProperty(k)) keys[k] = false;
         });
 
@@ -184,10 +184,11 @@
                 if (keys.d) dx = 1;
                 
                 ws.send(JSON.stringify({ 
-                    dx: dx, 
-                    dz: dz,
-                    sprint: keys.shift, // Hold Shift to sprint
-                    shoot: keys[" "]    // Tap Space to shoot
+                    dx: dx, dz: dz,
+                    sprint: keys.shift, 
+                    shoot: keys[" "],    
+                    pass: keys.e,
+                    lofted_pass: keys.f   // NEW: Send the lofted pass command
                 }));
             }
         }, 16);

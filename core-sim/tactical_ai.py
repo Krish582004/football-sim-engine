@@ -67,9 +67,50 @@ class TacticalAI:
             
             if dist_to_ball < tackle_radius and ball.pos_y < 1.0:
                 player.has_possession = True
-                should_shoot = True if (player.is_human and player.input_shoot) or not player.is_human else False
-
-                if should_shoot:
+                
+                # 1. Human Passing Logic (Press E for ground, F for lofted)
+                if player.is_human and (player.input_pass or player.input_lofted_pass):
+                    target_mate = None
+                    
+                    if player.input_lofted_pass:
+                        # LONG BALL: Find the furthest teammate
+                        max_dist = -1
+                        for j in range(1, 5):
+                            mate = state.players[j]
+                            dist = math.hypot(mate.pos_x - player.pos_x, mate.pos_z - player.pos_z)
+                            if dist > max_dist:
+                                max_dist = dist
+                                target_mate = mate
+                    else:
+                        # GROUND PASS: Find the closest teammate
+                        min_dist = float('inf')
+                        for j in range(1, 5):
+                            mate = state.players[j]
+                            dist = math.hypot(mate.pos_x - player.pos_x, mate.pos_z - player.pos_z)
+                            if dist < min_dist:
+                                min_dist = dist
+                                target_mate = mate
+                            
+                    if target_mate:
+                        pass_dx = target_mate.pos_x - player.pos_x
+                        pass_dz = target_mate.pos_z - player.pos_z
+                        pass_mag = math.hypot(pass_dx, pass_dz)
+                        
+                        if player.input_lofted_pass:
+                            # Lofted Pass (High arc, slight curve)
+                            ball.vel_x = (pass_dx / pass_mag) * 18.0
+                            ball.vel_y = 8.0   # Kick it 8 meters high into the air
+                            ball.vel_z = (pass_dz / pass_mag) * 18.0
+                            ball.spin_y = random.uniform(-15.0, 15.0) 
+                        else:
+                            # Ground Pass (Fast, flat)
+                            ball.vel_x = (pass_dx / pass_mag) * 20.0
+                            ball.vel_y = 1.0 
+                            ball.vel_z = (pass_dz / pass_mag) * 20.0
+                            ball.spin_y = 0.0
+                        
+                # 2. Shooting Logic (Spacebar for Human, Automatic for AI)
+                elif (player.is_human and player.input_shoot) or not player.is_human:
                     target_goal_x = 50.0 if player.tactical_role == 0 else -50.0
                     kick_dx = target_goal_x - player.pos_x
                     kick_dz = (0.0 - player.pos_z) + random.uniform(-2.0, 2.0) 

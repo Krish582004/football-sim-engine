@@ -25,6 +25,23 @@ class PlayerState:
     input_sprint: bool = False # Shift key
     input_shoot: bool = False  # Spacebar
 
+    # --- Input Control Variables ---
+    is_human: bool = False
+    input_dx: float = 0.0
+    input_dz: float = 0.0
+    input_sprint: bool = False 
+    input_shoot: bool = False  
+    input_pass: bool = False   # NEW: Passing flag
+
+    # --- Input Control Variables ---
+    is_human: bool = False
+    input_dx: float = 0.0
+    input_dz: float = 0.0
+    input_sprint: bool = False 
+    input_shoot: bool = False  
+    input_pass: bool = False   
+    input_lofted_pass: bool = False  # NEW: Lob/Cross flag
+
 @dataclass
 class BallState:
     pos_x: float = 0.0; pos_y: float = 0.0; pos_z: float = 0.0
