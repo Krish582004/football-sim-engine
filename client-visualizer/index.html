@@ -35,128 +35,122 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
     <script>
+        // 1. Scene & Shadow-Enabled Renderer
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        // --- NEW: Enable Soft Shadows ---
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
+        // --- NEW: Stadium Lighting (Afternoon Sun) ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.2); // Soft base light
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 0.85);
+        sunLight.position.set(-40, 50, 30); // Angled from the top-left corner
+        sunLight.castShadow = true;
+        // Expand the shadow camera bounds to cover the entire 105x68 pitch
+        sunLight.shadow.camera.left = -60;
+        sunLight.shadow.camera.right = 60;
+        sunLight.shadow.camera.top = 40;
+        sunLight.shadow.camera.bottom = -40;
+        sunLight.shadow.mapSize.width = 2048; // High-res shadows
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+
+        // --- UPGRADED: Pitch (Lambert Material + receiveShadow) ---
         const pitchGeometry = new THREE.PlaneGeometry(105, 68);
-        const pitchMaterial = new THREE.MeshBasicMaterial({ color: 0x2e8b57, side: THREE.DoubleSide });
+        const pitchMaterial = new THREE.MeshLambertMaterial({ color: 0x2e8b57, side: THREE.DoubleSide });
         const pitch = new THREE.Mesh(pitchGeometry, pitchMaterial);
         pitch.rotation.x = -Math.PI / 2;
+        pitch.receiveShadow = true; // Let shadows fall on the grass
         scene.add(pitch);
 
-        // --- NEW: DRAW THE GOALPOSTS ---
+        // Draw Goalposts (Upgraded to Lambert Material)
         function createGoal(xPos) {
             const goalGroup = new THREE.Group();
-            const postGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.44, 8); // 2.44m high
-            const barGeo = new THREE.CylinderGeometry(0.2, 0.2, 7.32, 8);  // 7.32m wide
-            const goalMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White posts
+            const postGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.44, 8);
+            const barGeo = new THREE.CylinderGeometry(0.2, 0.2, 7.32, 8);  
+            const goalMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); 
 
             const leftPost = new THREE.Mesh(postGeo, goalMat);
             leftPost.position.set(0, 1.22, 3.66);
+            leftPost.castShadow = true;
             
             const rightPost = new THREE.Mesh(postGeo, goalMat);
             rightPost.position.set(0, 1.22, -3.66);
+            rightPost.castShadow = true;
             
             const crossbar = new THREE.Mesh(barGeo, goalMat);
             crossbar.rotation.x = Math.PI / 2;
             crossbar.position.set(0, 2.44, 0);
+            crossbar.castShadow = true;
 
-            goalGroup.add(leftPost);
-            goalGroup.add(rightPost);
-            goalGroup.add(crossbar);
-            
+            goalGroup.add(leftPost); goalGroup.add(rightPost); goalGroup.add(crossbar);
             goalGroup.position.set(xPos, 0, 0);
             scene.add(goalGroup);
         }
-        
-        // Add Left Goal and Right Goal at the pitch edges
-        createGoal(-52.5);
-        createGoal(52.5);
-        // -------------------------------
+        createGoal(-52.5); createGoal(52.5);
 
-        const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32);
-        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        // Draw Pitch Markings (Stays Basic Material so they glow bright white)
+        function createPitchMarkings() {
+            const markings = new THREE.Group();
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+            function drawLine(x1, z1, x2, z2) {
+                const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1, 0.02, z1), new THREE.Vector3(x2, 0.02, z2)]);
+                markings.add(new THREE.Line(geo, lineMat));
+            }
+            drawLine(-52.5, -34, 52.5, -34); drawLine(-52.5, 34, 52.5, 34);
+            drawLine(-52.5, -34, -52.5, 34); drawLine(52.5, -34, 52.5, 34); drawLine(0, -34, 0, 34);
+            
+            const circleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            const centerCircle = new THREE.Mesh(new THREE.RingGeometry(9.15, 9.35, 64), circleMat);
+            centerCircle.rotation.x = -Math.PI / 2; centerCircle.position.y = 0.02; markings.add(centerCircle);
+            const centerDot = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16), circleMat);
+            centerDot.rotation.x = -Math.PI / 2; centerDot.position.y = 0.02; markings.add(centerDot);
+            
+            drawLine(-52.5, -20.16, -36, -20.16); drawLine(-52.5, 20.16, -36, 20.16); drawLine(-36, -20.16, -36, 20.16);
+            drawLine(52.5, -20.16, 36, -20.16); drawLine(52.5, 20.16, 36, 20.16); drawLine(36, -20.16, 36, 20.16);
+            scene.add(markings);
+        }
+        createPitchMarkings();
+
+        // --- UPGRADED: Ball (Lambert + castShadow) ---
+        const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32); 
+        const ballMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
         const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+        ballMesh.castShadow = true;
         scene.add(ballMesh);
 
+        // --- UPGRADED: Players (Lambert + castShadow) ---
         const playerMeshes = [];
         const playerGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 16);
-        const matBlue = new THREE.MeshBasicMaterial({ color: 0x0000ff });
-        const matRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const matHuman = new THREE.MeshBasicMaterial({ color: 0xffd700 }); // GOLD for you
+        const matBlue = new THREE.MeshLambertMaterial({ color: 0x0000ff });
+        const matRed = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+        const matHuman = new THREE.MeshLambertMaterial({ color: 0xffd700 }); 
 
         for (let i = 0; i < 10; i++) {
             let mat = i < 5 ? matBlue : matRed;
-            if (i === 0) mat = matHuman; // Color Player 0 gold
+            if (i === 0) mat = matHuman; 
             const mesh = new THREE.Mesh(playerGeometry, mat);
+            mesh.castShadow = true; // NEW: Cast shadows onto grass
+            mesh.receiveShadow = true; // NEW: Receive shadows from the ball flying over them
             scene.add(mesh);
             playerMeshes.push(mesh);
         }
 
-        // --- NEW: DRAW FIFA PITCH MARKINGS ---
-        function createPitchMarkings() {
-            const markings = new THREE.Group();
-            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-
-            // Helper to draw straight lines slightly above the grass (y=0.02) to prevent z-fighting
-            function drawLine(x1, z1, x2, z2) {
-                const points = [new THREE.Vector3(x1, 0.02, z1), new THREE.Vector3(x2, 0.02, z2)];
-                const geo = new THREE.BufferGeometry().setFromPoints(points);
-                markings.add(new THREE.Line(geo, lineMaterial));
-            }
-
-            // 1. Outer Boundaries (105m x 68m)
-            drawLine(-52.5, -34, 52.5, -34); // Top Touchline
-            drawLine(-52.5, 34, 52.5, 34);   // Bottom Touchline
-            drawLine(-52.5, -34, -52.5, 34); // Left Goal Line
-            drawLine(52.5, -34, 52.5, 34);   // Right Goal Line
-
-            // 2. Halfway Line
-            drawLine(0, -34, 0, 34);
-
-            // 3. Center Circle (9.15m radius) & Center Spot
-            const circleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-            
-            const circleGeo = new THREE.RingGeometry(9.15, 9.35, 64);
-            const centerCircle = new THREE.Mesh(circleGeo, circleMat);
-            centerCircle.rotation.x = -Math.PI / 2;
-            centerCircle.position.y = 0.02;
-            markings.add(centerCircle);
-
-            const dotGeo = new THREE.CircleGeometry(0.3, 16);
-            const centerDot = new THREE.Mesh(dotGeo, circleMat);
-            centerDot.rotation.x = -Math.PI / 2;
-            centerDot.position.y = 0.02;
-            markings.add(centerDot);
-
-            // 4. Penalty Boxes (16.5m deep, 40.32m wide)
-            // Left Box
-            drawLine(-52.5, -20.16, -36, -20.16); // Top edge
-            drawLine(-52.5, 20.16, -36, 20.16);   // Bottom edge
-            drawLine(-36, -20.16, -36, 20.16);    // Front edge
-
-            // Right Box
-            drawLine(52.5, -20.16, 36, -20.16);
-            drawLine(52.5, 20.16, 36, 20.16);
-            drawLine(36, -20.16, 36, 20.16);
-
-            scene.add(markings);
-        }
-        createPitchMarkings();
-        // -------------------------------------
-
-        // --- NEW: Possession Ring Visualizer ---
+        // Possession Ring (Stays Basic so it glows brightly)
         const ringGeo = new THREE.RingGeometry(0.5, 0.7, 32);
         const ringMat = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
         const possessionRing = new THREE.Mesh(ringGeo, ringMat);
-        possessionRing.rotation.x = -Math.PI / 2; // Lay flat on the grass
-        possessionRing.position.y = 0.05; // Slightly above the pitch
-        possessionRing.visible = false;
+        possessionRing.rotation.x = -Math.PI / 2; possessionRing.position.y = 0.05; possessionRing.visible = false;
         scene.add(possessionRing);
 
+        // Camera High Tactical View
         camera.position.set(0, 40, 45);
         camera.lookAt(0, 0, 0);
 
