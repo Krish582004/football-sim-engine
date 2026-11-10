@@ -14,23 +14,38 @@
             font-size: 14px; line-height: 1.5; pointer-events: none;
         }
         .telemetry-title { color: white; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #00ff00; }
+        /* Upgrade the Scoreboard */
         #scoreboard {
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.85); color: white; font-family: sans-serif;
-            font-size: 28px; font-weight: bold; padding: 10px 40px;
-            border-radius: 8px; border: 2px solid #555;
-            display: flex; gap: 20px; align-items: center;
+            font-size: 28px; font-weight: bold; border-radius: 8px; border: 2px solid #555;
+            display: flex; align-items: center; overflow: hidden;
         }
-        .score-blue { color: #4da6ff; }
-        .score-red { color: #ff4d4d; }
+        .score-box { padding: 10px 20px; }
+        .score-blue { background: #0033cc; }
+        .score-red { background: #cc0000; }
+        
+        /* NEW: Match Clock UI */
+        .match-clock { background: white; color: black; padding: 10px 20px; font-size: 22px; }
+
+        /* NEW: Floating Player Tags */
+        .player-tag {
+            position: absolute; transform: translate(-50%, -50%);
+            font-family: sans-serif; font-size: 11px; font-weight: bold; text-transform: uppercase;
+            padding: 3px 6px; border-radius: 4px; color: white;
+            pointer-events: none; text-shadow: 1px 1px 2px black; z-index: 10;
+        }
+        .tag-blue { background: rgba(0, 0, 255, 0.6); border: 1px solid blue; }
+        .tag-red { background: rgba(255, 0, 0, 0.6); border: 1px solid red; }
+        .tag-gold { background: rgba(255, 215, 0, 0.9); color: black; text-shadow: none; border: 1px solid orange; }
     </style>
 </head>
 <body>
     <div id="telemetry">Waiting for server...</div>
     <div id="scoreboard">
-        <span class="score-blue">BLUE <span id="score-b">0</span></span> 
-        <span>-</span> 
-        <span class="score-red"><span id="score-r">0</span> RED</span>
+        <div class="score-box score-blue">BLU <span id="score-b">0</span></div>
+        <div class="match-clock" id="match-clock">00:00</div>
+        <div class="score-box score-red"><span id="score-r">0</span> RED</div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
@@ -197,24 +212,56 @@
             const msPerTick = (now - lastTime).toFixed(1);
             lastTime = now;
 
+            // --- NEW: Calculate EAFC Match Time (60 ticks = 1 in-game minute) ---
+            const gameMinutes = Math.floor(data.tick / 60);
+            const displayMin = String(gameMinutes).padStart(2, '0');
+            document.getElementById("match-clock").innerText = displayMin + ":00";
+
             // Update Scoreboard UI
             document.getElementById("score-b").innerText = data.score.blue;
             document.getElementById("score-r").innerText = data.score.red;
             
             ballMesh.position.set(data.ball.x, data.ball.y, data.ball.z);
-            
-            possessionRing.visible = false; // Hide ring by default
+            possessionRing.visible = false;
 
             for (let i = 0; i < 10; i++) {
                 if (data.players[i]) {
+                    // 1. Move the 3D Cylinder
                     playerMeshes[i].position.set(data.players[i].x, data.players[i].y, data.players[i].z);
                     
-                    // If this player has the ball, move the ring under them
+                    // 2. Move the Possession Ring
                     if (data.players[i].has_possession) {
                         possessionRing.position.x = data.players[i].x;
                         possessionRing.position.z = data.players[i].z;
                         possessionRing.visible = true;
                     }
+
+                    // --- NEW: 3D to 2D Spatial Projection for Floating Tags ---
+                    let tag = document.getElementById("tag-" + i);
+                    if (!tag) {
+                        // Create the HTML tag if it doesn't exist yet
+                        tag = document.createElement("div");
+                        tag.id = "tag-" + i;
+                        let teamClass = data.players[i].team === 0 ? "tag-blue" : "tag-red";
+                        if (i === 0) teamClass = "tag-gold"; // Human Player
+                        tag.className = `player-tag ${teamClass}`;
+                        
+                        // Add an asterisk if they are the Goalkeeper
+                        tag.innerText = data.players[i].playstyle === "Goalkeeper" ? "(GK)" : data.players[i].playstyle;
+                        document.body.appendChild(tag);
+                    }
+
+                    // Project the 3D position onto the 2D screen
+                    const pos = playerMeshes[i].position.clone();
+                    pos.y += 1.5; // Hover 1.5 meters above the cylinder's center
+                    pos.project(camera);
+                    
+                    // Convert normalized device coordinates to screen pixels
+                    const screenX = (pos.x * 0.5 + 0.5) * window.innerWidth;
+                    const screenY = (pos.y * -0.5 + 0.5) * window.innerHeight;
+                    
+                    tag.style.left = `${screenX}px`;
+                    tag.style.top = `${screenY}px`;
                 }
             }
             
@@ -224,7 +271,8 @@
                 Tick Rate : ${msPerTick} ms<br>
                 Tick #    : ${data.tick}<br>
                 State Hash: ${data.hash}<br>
-                Client    : Connected (WebSocket)
+                WASD: Move | SHIFT: Sprint<br>
+                SPACE: Shoot | E: Pass | F: Lob
             `;
         };
 

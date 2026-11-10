@@ -49,6 +49,7 @@ async def match_stream(websocket: WebSocket):
             state = engine.get_current_state()
             
            # 3. Serialize coordinates to JSON (Phase 6: Added Hash & Possession)
+            # 3. Serialize coordinates to JSON
             payload = {
                 "tick": state.tick_number,
                 "hash": state.state_checksum,
@@ -63,7 +64,8 @@ async def match_stream(websocket: WebSocket):
                         "y": p.pos_y, 
                         "z": p.pos_z, 
                         "team": p.tactical_role,
-                        "has_possession": p.has_possession
+                        "has_possession": p.has_possession,
+                        "playstyle": p.playstyle  # NEW: Send the EAFC PlayStyle
                     } for p in state.players
                 ]
             }
