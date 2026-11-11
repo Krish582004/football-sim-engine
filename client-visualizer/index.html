@@ -1,286 +1,2645 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <title>VectorPitch 3D Engine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VectorPitch 2027 — Next-Gen Football Simulation & Tactical Engine</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
-        #telemetry {
-            position: absolute; bottom: 20px; left: 20px;
-            color: #00ff00; font-family: 'Courier New', Courier, monospace; 
-            background: rgba(0, 20, 0, 0.85); padding: 15px; 
-            border-radius: 5px; border: 1px solid #00ff00;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
-            font-size: 14px; line-height: 1.5; pointer-events: none;
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #070b14;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            user-select: none;
         }
-        .telemetry-title { color: white; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #00ff00; }
-        /* Upgrade the Scoreboard */
-        #scoreboard {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.85); color: white; font-family: sans-serif;
-            font-size: 28px; font-weight: bold; border-radius: 8px; border: 2px solid #555;
-            display: flex; align-items: center; overflow: hidden;
+        .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.86);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.16);
         }
-        .score-box { padding: 10px 20px; }
-        .score-blue { background: #0033cc; }
-        .score-red { background: #cc0000; }
-        
-        /* NEW: Match Clock UI */
-        .match-clock { background: white; color: black; padding: 10px 20px; font-size: 22px; }
-
-        /* NEW: Floating Player Tags */
-        .player-tag {
-            position: absolute; transform: translate(-50%, -50%);
-            font-family: sans-serif; font-size: 11px; font-weight: bold; text-transform: uppercase;
-            padding: 3px 6px; border-radius: 4px; color: white;
-            pointer-events: none; text-shadow: 1px 1px 2px black; z-index: 10;
+        .gold-card {
+            background: linear-gradient(135deg, #2e2408 0%, #785c12 45%, #1e293b 100%);
+            border: 1.5px solid #facc15;
+            box-shadow: 0 10px 25px -5px rgba(250, 204, 21, 0.25);
         }
-        .tag-blue { background: rgba(0, 0, 255, 0.6); border: 1px solid blue; }
-        .tag-red { background: rgba(255, 0, 0, 0.6); border: 1px solid red; }
-        .tag-gold { background: rgba(255, 215, 0, 0.9); color: black; text-shadow: none; border: 1px solid orange; }
+        .cyan-card {
+            background: linear-gradient(135deg, #082f49 0%, #0f172a 60%, #1e1b4b 100%);
+            border: 1.5px solid #38bdf8;
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.22);
+        }
+        .playstyle-diamond {
+            width: 10px;
+            height: 10px;
+            transform: rotate(45deg);
+            display: inline-block;
+            background: #facc15;
+            border: 1px solid #fff;
+            box-shadow: 0 0 6px #facc15;
+        }
+        .player-tag-3d {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            pointer-events: none;
+            z-index: 20;
+            transition: opacity 0.1s ease;
+            white-space: nowrap;
+        }
+        #pitch-viewport {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 118px);
+            min-height: 480px;
+            background: radial-gradient(circle at center, #0f291e 0%, #050811 100%);
+            overflow: hidden;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
     </style>
 </head>
-<body>
-    <div id="telemetry">Waiting for server...</div>
-    <div id="scoreboard">
-        <div class="score-box score-blue">BLU <span id="score-b">0</span></div>
-        <div class="match-clock" id="match-clock">00:00</div>
-        <div class="score-box score-red"><span id="score-r">0</span> RED</div>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+
+    <!-- TOP NAVIGATION HEADER -->
+    <header class="glass-panel sticky top-0 z-40 px-3 py-2 border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <!-- Brand Title & Engine Badge -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 font-black text-slate-950 text-base tracking-tighter">
+                    VP27
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-extrabold tracking-tight text-sm sm:text-base text-white">VECTORPITCH <span class="text-emerald-400">2027</span></span>
+                        <span id="engine-mode-badge" class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">240Hz Physics • 60Hz Rollback</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Deterministic Football Engine • FC IQ Tactics • PlayStyles+ • eFootball Progression</p>
+                </div>
+            </div>
+
+            <!-- Main Mode Tabs -->
+            <nav class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
+                <button id="nav-btn-match" onclick="switchMainTab('match')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow">
+                    ⚽ 3D Match Engine
+                </button>
+                <button id="nav-btn-tactics" onclick="switchMainTab('tactics')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300 hover:text-white hover:bg-slate-800">
+                    📋 FC IQ & Tactics
+                </button>
+                <button id="nav-btn-squad" onclick="switchMainTab('squad')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300 hover:text-white hover:bg-slate-800">
+                    💎 Ultimate Squad & PlayStyles+
+                </button>
+                <button id="nav-btn-career" onclick="switchMainTab('career')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300 hover:text-white hover:bg-slate-800">
+                    🏆 Career & Transfers
+                </button>
+                <button id="nav-btn-telemetry" onclick="switchMainTab('telemetry')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300 hover:text-white hover:bg-slate-800">
+                    📡 Netcode & Wind-Tunnel Lab
+                </button>
+            </nav>
+
+            <!-- Quick Status & Audio Controls -->
+            <div class="flex items-center gap-2">
+                <div class="hidden md:flex items-center gap-2 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 text-xs">
+                    <span class="text-slate-400">Budget:</span>
+                    <span id="header-budget" class="font-mono-code font-bold text-emerald-400">€125.0M</span>
+                    <span class="text-slate-600">|</span>
+                    <span class="text-slate-400">Prog. Pts:</span>
+                    <span id="header-prog-pts" class="font-mono-code font-bold text-amber-400">24</span>
+                </div>
+                <button id="btn-audio-toggle" onclick="toggleAudioMute()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700" title="Toggle Stadium & Kick Sound Effects">
+                    🔊 SFX On
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 1: 3D LIVE MATCH ENGINE (EAFC 27 / eFootball 2027 Pitch View)   -->
+    <!-- ===================================================================== -->
+    <main id="view-match" class="flex-1 flex flex-col">
+        <!-- Match Top Sub-Toolbar -->
+        <div class="bg-slate-900/95 border-b border-slate-800 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-slate-400 font-semibold">Mode:</span>
+                <button id="btn-mode-5v5" onclick="setMatchFormat('5v5')" class="px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">5v5 Rush</button>
+                <button id="btn-mode-11v11" onclick="setMatchFormat('11v11')" class="px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold">11v11 Full Pitch</button>
+
+                <span class="text-slate-600 mx-1">|</span>
+                <span class="text-slate-400 font-semibold">Camera:</span>
+                <select id="select-camera" onchange="setCameraPreset(this.value)" class="bg-slate-800 text-slate-100 rounded px-2 py-1 border border-slate-700 text-xs font-semibold">
+                    <option value="broadcast">TV Broadcast</option>
+                    <option value="tactical">Tactical Overhead (FC IQ)</option>
+                    <option value="pro">Pro End-to-End</option>
+                    <option value="ball">Follow Ball Close</option>
+                </select>
+
+                <span class="text-slate-600 mx-1">|</span>
+                <span class="text-slate-400 font-semibold">D-Pad Mentality:</span>
+                <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                    <button id="ment-btn-ULTRA_DEFENSIVE" onclick="setLiveMentality('ULTRA_DEFENSIVE')" class="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 hover:text-white" title="Key 1">1 Park Bus</button>
+                    <button id="ment-btn-BALANCED" onclick="setLiveMentality('BALANCED')" class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-600 text-white" title="Key 2">2 Balanced</button>
+                    <button id="ment-btn-GEGENPRESS" onclick="setLiveMentality('GEGENPRESS')" class="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 hover:text-white" title="Key 3">3 Gegenpress</button>
+                    <button id="ment-btn-ALL_OUT_ATTACK" onclick="setLiveMentality('ALL_OUT_ATTACK')" class="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 hover:text-white" title="Key 4">4 All-Out</button>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-1.5">
+                <button id="btn-toggle-arc" onclick="toggleTrajectoryArc()" class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold">
+                    📈 Magnus Arc: ON
+                </button>
+                <button id="btn-toggle-voronoi" onclick="toggleTacticalVectors()" class="px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-semibold">
+                    🧭 AI Vectors: ON
+                </button>
+                <button id="btn-replay-drawer" onclick="toggleReplayDrawer()" class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold hover:bg-amber-500/30">
+                    ⏪ Instant Replay (300f)
+                </button>
+                <button id="btn-pause-match" onclick="togglePauseMatch()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold">
+                    ⏸ Pause
+                </button>
+                <button onclick="resetMatchScoreAndKickoff()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                    🔄 Kickoff
+                </button>
+            </div>
+        </div>
+
+        <!-- 3D WebGL Viewport Container -->
+        <div id="pitch-viewport">
+            <!-- Three.js Canvas mounts here -->
+            <div id="three-canvas-Mount" class="w-full h-full"></div>
+            <!-- Dynamic 3D-to-2D Floating Player Tags Container -->
+            <div id="floating-tags-layer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+            <!-- Broadcast TV Scorebug (Top-Left / Center) -->
+            <div class="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center pointer-events-none">
+                <div class="glass-panel rounded-xl overflow-hidden shadow-2xl border border-slate-700/80 flex items-center text-xs sm:text-sm">
+                    <div class="bg-gradient-to-r from-blue-700 to-blue-600 px-3 py-1.5 font-extrabold tracking-wide flex items-center gap-2">
+                        <span id="hud-home-code">VPB</span>
+                        <span id="hud-score-blue" class="text-lg font-black bg-slate-950/50 px-2 py-0.5 rounded">0</span>
+                    </div>
+                    <div class="px-3 py-1.5 bg-slate-950/90 text-center min-w-[76px]">
+                        <div id="hud-match-clock" class="font-mono-code font-extrabold text-emerald-400 text-sm">00:00</div>
+                        <div id="hud-xg-summary" class="text-[10px] text-slate-400 font-mono-code">xG 0.00 - 0.00</div>
+                    </div>
+                    <div class="bg-gradient-to-l from-rose-700 to-rose-600 px-3 py-1.5 font-extrabold tracking-wide flex items-center gap-2">
+                        <span id="hud-score-red" class="text-lg font-black bg-slate-950/50 px-2 py-0.5 rounded">0</span>
+                        <span id="hud-away-code">MCR</span>
+                    </div>
+                </div>
+                <!-- Live Commentary / Event Ticker -->
+                <div id="hud-commentary-pill" class="mt-1.5 px-3 py-0.5 rounded-full bg-slate-950/85 border border-slate-700/70 text-[11px] text-slate-200 font-medium shadow">
+                    Kickoff! Control the Gold-highlighted player (WASD + Space/R/G/E/Q/F) or use the touch controls.
+                </div>
+            </div>
+
+            <!-- Goal Celebration Banner Overlay -->
+            <div id="goal-banner-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center pointer-events-none bg-slate-950/45 backdrop-blur-sm">
+                <div class="px-8 py-6 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 text-slate-950 shadow-2xl transform scale-100 text-center border-4 border-white">
+                    <div class="text-xs font-black uppercase tracking-widest">VectorPitch 2027 Official Goal Decision</div>
+                    <div class="text-4xl sm:text-6xl font-black tracking-tighter my-1">GOOOAAALLL!</div>
+                    <div id="goal-banner-details" class="text-sm sm:text-base font-extrabold">K. Mbappe-Sim • Shot xG: 0.42 • 104 km/h</div>
+                </div>
+            </div>
+
+            <!-- Instant Replay Ring-Buffer Scrubber Drawer -->
+            <div id="replay-drawer" class="hidden absolute top-20 left-1/2 -translate-x-1/2 z-30 glass-panel rounded-xl p-3 w-11/12 max-w-xl border border-amber-400/50 shadow-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[10px] uppercase">300-Frame Ring Buffer Replay</span>
+                        <span id="replay-frame-label" class="font-mono-code text-xs text-amber-300">Frame -0 / Tick 0</span>
+                    </div>
+                    <button onclick="closeReplayDrawer()" class="px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-bold text-xs">▶ Resume Live</button>
+                </div>
+                <input id="replay-slider" type="range" min="0" max="100" value="100" oninput="scrubReplayFrame(this.value)" class="w-full accent-amber-400 cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-400 font-mono-code mt-1">
+                    <span>-5.0s (Oldest Buffered Snapshot)</span>
+                    <span>Deterministic Checksum Verified</span>
+                    <span>Live Head Frame</span>
+                </div>
+            </div>
+
+            <!-- Left HUD: Server & Physics Telemetry Box (Upgraded from user's index.html) -->
+            <div class="absolute bottom-3 left-3 z-20 glass-panel rounded-xl p-3 border border-emerald-500/40 shadow-xl max-w-[260px] text-[11px] font-mono-code hidden sm:block">
+                <div class="flex items-center justify-between border-b border-emerald-500/30 pb-1 mb-1.5">
+                    <span class="font-bold text-emerald-400">ENGINE TELEMETRY (240Hz)</span>
+                    <span id="hud-net-indicator" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                </div>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-300">
+                    <span>Frame Time:</span><span id="tel-ms" class="text-white font-bold">16.6 ms</span>
+                    <span>Sim Tick #:</span><span id="tel-tick" class="text-white">0</span>
+                    <span>State Hash:</span><span id="tel-hash" class="text-cyan-400">a1b2c3d4</span>
+                    <span>Ball Speed:</span><span id="tel-ball-speed" class="text-amber-300">0.0 km/h</span>
+                    <span>Magnus Spin:</span><span id="tel-ball-spin" class="text-purple-300">0.0 rad/s</span>
+                    <span>Possession:</span><span id="tel-possession" class="text-emerald-300">50% - 50%</span>
+                </div>
+                <div class="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-slate-400 leading-tight">
+                    <div><strong class="text-slate-200">WASD</strong> Move • <strong class="text-slate-200">SHIFT</strong> Sprint • <strong class="text-slate-200">C</strong> Switch</div>
+                    <div><strong class="text-amber-300">SPACE</strong> Shoot • <strong class="text-cyan-300">R</strong> Finesse+ • <strong class="text-purple-300">G</strong> Stunning</div>
+                    <div><strong class="text-emerald-300">E</strong> Pass • <strong class="text-emerald-300">Q</strong> Through • <strong class="text-emerald-300">F</strong> Lob • <strong class="text-rose-300">X</strong> Tackle</div>
+                </div>
+            </div>
+
+            <!-- Bottom-Center HUD: 2D Pitch Radar Minimap + Controlled Player Bio Bar -->
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none">
+                <!-- Active Controlled Player Card Strip -->
+                <div class="glass-panel px-3 py-1 rounded-lg border border-amber-400/40 flex items-center gap-3 text-xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="playstyle-diamond"></span>
+                        <span id="hud-active-player-name" class="font-extrabold text-amber-300">9 K. Mbappe-Sim</span>
+                        <span id="hud-active-playstyle" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-200 font-bold">Finesse Shot+</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] text-slate-400">STA</span>
+                        <div class="w-16 h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="hud-stamina-bar" class="h-full bg-emerald-400" style="width:100%"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] text-slate-400">PWR</span>
+                        <div class="w-16 h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="hud-power-bar" class="h-full bg-amber-400" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 2D Radar Canvas -->
+                <canvas id="radar-canvas" width="210" height="136" class="rounded-lg border border-slate-700/90 shadow-lg bg-emerald-950/85"></canvas>
+            </div>
+
+            <!-- Right HUD: Interactive On-Screen Touch / Mouse Gamepad Controls -->
+            <div class="absolute bottom-3 right-3 z-20 glass-panel rounded-xl p-2.5 border border-slate-700/80 shadow-xl flex flex-col gap-2">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">Interactive Gamepad</div>
+                <div class="flex items-center gap-3">
+                    <!-- Directional Pad -->
+                    <div class="grid grid-cols-3 gap-1 w-24 h-24">
+                        <div></div>
+                        <button onmousedown="setPadDir(0,-1)" onmouseup="setPadDir(0,0)" ontouchstart="setPadDir(0,-1)" ontouchend="setPadDir(0,0)" class="bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 active:text-slate-950 rounded flex items-center justify-center font-bold text-xs border border-slate-700">▲</button>
+                        <div></div>
+                        <button onmousedown="setPadDir(-1,0)" onmouseup="setPadDir(0,0)" ontouchstart="setPadDir(-1,0)" ontouchend="setPadDir(0,0)" class="bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 active:text-slate-950 rounded flex items-center justify-center font-bold text-xs border border-slate-700">◀</button>
+                        <button onclick="triggerHumanSprintToggle()" id="pad-sprint-btn" class="bg-slate-900 hover:bg-slate-800 rounded flex items-center justify-center font-extrabold text-[9px] text-amber-300 border border-amber-500/40">SPR</button>
+                        <button onmousedown="setPadDir(1,0)" onmouseup="setPadDir(0,0)" ontouchstart="setPadDir(1,0)" ontouchend="setPadDir(0,0)" class="bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 active:text-slate-950 rounded flex items-center justify-center font-bold text-xs border border-slate-700">▶</button>
+                        <div></div>
+                        <button onmousedown="setPadDir(0,1)" onmouseup="setPadDir(0,0)" ontouchstart="setPadDir(0,1)" ontouchend="setPadDir(0,0)" class="bg-slate-800 hover:bg-slate-700 active:bg-emerald-500 active:text-slate-950 rounded flex items-center justify-center font-bold text-xs border border-slate-700">▼</button>
+                        <div></div>
+                    </div>
+
+                    <!-- Action Buttons (EAFC / eFootball Layout) -->
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <button onclick="executeGamepadAction('shoot')" class="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] shadow">
+                            ⚽ SHOOT
+                        </button>
+                        <button onclick="executeGamepadAction('finesse')" class="px-2.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[11px] shadow">
+                            🎯 FINESSE+
+                        </button>
+                        <button onclick="executeGamepadAction('stunning')" class="px-2.5 py-1.5 rounded-lg bg-purple-500 hover:bg-purple-400 text-white font-extrabold text-[11px] shadow">
+                            ⚡ STUNNING
+                        </button>
+                        <button onclick="executeGamepadAction('pass')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-[11px] shadow">
+                            👟 PASS (E)
+                        </button>
+                        <button onclick="executeGamepadAction('through')" class="px-2.5 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-[11px]">
+                            📐 THROUGH (Q)
+                        </button>
+                        <button onclick="executeGamepadAction('lob')" class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px]">
+                            🚀 LOB (F)
+                        </button>
+                        <button onclick="executeGamepadAction('switch')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[10px] border border-slate-600">
+                            🔄 SWITCH (C)
+                        </button>
+                        <button onclick="executeGamepadAction('tackle')" class="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white font-bold text-[10px]">
+                            🛡 TACKLE (X)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 2: FC IQ TACTICAL BOARD & eFOOTBALL TEAM PLAYSTYLE MANAGER       -->
+    <!-- ===================================================================== -->
+    <section id="view-tactics" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">FC IQ Tactical Board & Team Playstyle Engine</h1>
+                <p class="text-xs sm:text-sm text-slate-400">Configure formations, eFootball collective pressing systems, and individual FC IQ player roles that drive the live spatial AI.</p>
+            </div>
+            <button onclick="applyTacticsAndJumpToMatch()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-500/20">
+                ✅ Apply Game Plan & Return to Pitch
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left 5 Cols: Formation, Team Playstyle & Sliders -->
+            <div class="lg:col-span-5 space-y-4">
+                <div class="glass-panel rounded-2xl p-4 space-y-4">
+                    <h2 class="text-sm font-extrabold uppercase tracking-wider text-emerald-400">1. Collective System & Formation</h2>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Active Tactical Formation</label>
+                        <select id="tactics-formation-select" onchange="updateTacticalBoardPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-white">
+                            <option value="1-2-1">1-2-1 Diamond (4-3-3 Holding Equiv.)</option>
+                            <option value="2-1-1">2-1-1 Pyramid (4-2-3-1 Counter Equiv.)</option>
+                            <option value="1-1-2">1-1-2 High Press (4-2-4 Gegenpress Equiv.)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">eFootball Team Playstyle Philosophy</label>
+                        <select id="tactics-playstyle-select" onchange="updateTacticalBoardPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-cyan-300">
+                            <option value="Quick Counter">⚡ Quick Counter (Vertical Support Runs +18%)</option>
+                            <option value="Possession Game">🎯 Possession Game (Short Passing Triangles & Tight Spacing)</option>
+                            <option value="Gegenpress">🔥 Gegenpress (Immediate 19m Ball-Loss Swarm Press)</option>
+                            <option value="Long Ball Counter">🚀 Long Ball Counter (Deep Compact Block + Early Target Runs)</option>
+                            <option value="Out Wide">📐 Out Wide (Touchline Huggers & Early Lofted Crosses)</option>
+                        </select>
+                    </div>
+
+                    <!-- Sliders -->
+                    <div class="space-y-3 pt-2 border-t border-slate-800">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300 font-semibold">Defensive Line Height</span>
+                                <span id="lbl-line-height" class="font-mono-code text-emerald-400 font-bold">70 / 100 (High Line)</span>
+                            </div>
+                            <input id="slider-line-height" type="range" min="20" max="95" value="70" oninput="updateTacticalBoardPreview()" class="w-full accent-emerald-400">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300 font-semibold">Pressing Trigger Radius</span>
+                                <span id="lbl-press-radius" class="font-mono-code text-cyan-400 font-bold">16.5 m</span>
+                            </div>
+                            <input id="slider-press-radius" type="range" min="10" max="24" value="16" oninput="updateTacticalBoardPreview()" class="w-full accent-cyan-400">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300 font-semibold">Attacking Support Width</span>
+                                <span id="lbl-team-width" class="font-mono-code text-amber-400 font-bold">65 / 100</span>
+                            </div>
+                            <input id="slider-team-width" type="range" min="30" max="95" value="65" oninput="updateTacticalBoardPreview()" class="w-full accent-amber-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Individual FC IQ Player Role Assigner -->
+                <div class="glass-panel rounded-2xl p-4">
+                    <h2 class="text-sm font-extrabold uppercase tracking-wider text-amber-400 mb-3">2. Individual FC IQ Player Roles++</h2>
+                    <div id="fc-iq-roles-list" class="space-y-2.5"></div>
+                </div>
+            </div>
+
+            <!-- Right 7 Cols: Interactive 2D Spatial Pitch Diagram -->
+            <div class="lg:col-span-7 glass-panel rounded-2xl p-4 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 class="text-sm font-extrabold uppercase tracking-wider text-white">In-Possession vs. Out-of-Possession Spatial Anchor Map</h2>
+                        <p class="text-xs text-slate-400">Gold rings show attacking run vectors; dashed hulls show defensive pressing coverage.</p>
+                    </div>
+                    <span id="tactics-familiarity-badge" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono-code font-bold text-xs">
+                        Tactical Familiarity: 98 / 100
+                    </span>
+                </div>
+                <div class="flex-1 flex items-center justify-center bg-slate-950 rounded-xl p-2 border border-slate-800">
+                    <canvas id="tactical-board-canvas" width="640" height="410" class="w-full max-w-[640px] h-auto rounded-lg"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 3: ULTIMATE SQUAD & PLAYSTYLES+ PROGRESSION LAB                  -->
+    <!-- ===================================================================== -->
+    <section id="view-squad" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">Ultimate Squad Builder & PlayStyles+ Progression Lab</h1>
+                <p class="text-xs sm:text-sm text-slate-400">Allocate eFootball progression points to upgrade live 240Hz physics parameters (`pace`, `shot_power`, `curve_ability`) or scout new PlayStyle+ stars.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="grantBonusProgressionPoints()" class="px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-bold text-xs">
+                    ⚡ +10 Training Drill Points
+                </button>
+                <button onclick="openScoutPackModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    🎁 Open Elite PlayStyle+ Scout Pack (€15.0M)
+                </button>
+            </div>
+        </div>
+
+        <!-- Squad Cards Grid -->
+        <div id="squad-cards-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6"></div>
+
+        <!-- Selected Player Progression & Physics Parameter Tuner -->
+        <div class="glass-panel rounded-2xl p-5 border border-amber-400/30">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div class="lg:col-span-4 space-y-2 border-b lg:border-b-0 lg:border-r border-slate-800 pb-4 lg:pb-0 lg:pr-5">
+                    <div class="text-xs font-bold uppercase tracking-wider text-amber-400">Selected Player Progression</div>
+                    <div id="prog-selected-name" class="text-2xl font-black text-white">K. Mbappe-Sim (OVR 91)</div>
+                    <div id="prog-selected-role" class="text-xs text-slate-300">Role: <span class="text-emerald-400 font-bold">Poacher+</span> • PlayStyle+: <span class="text-amber-300 font-bold">Finesse Shot+</span></div>
+                    <div class="pt-2 flex items-center gap-3">
+                        <div class="bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
+                            <div class="text-[10px] text-slate-400 uppercase">Available Points</div>
+                            <div id="prog-points-readout" class="text-xl font-mono-code font-black text-amber-400">24 PTS</div>
+                        </div>
+                        <div class="bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
+                            <div class="text-[10px] text-slate-400 uppercase">Physics Top Speed</div>
+                            <div id="prog-physics-speed" class="text-xl font-mono-code font-black text-cyan-400">8.20 m/s</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-3" id="prog-upgrade-buttons">
+                    <!-- Populated dynamically by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Pack Reveal Notification Banner -->
+        <div id="pack-reveal-banner" class="hidden mt-4 glass-panel rounded-2xl p-4 border-2 border-amber-400 flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-900">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xl">★</div>
+                <div>
+                    <div class="text-xs font-bold uppercase text-amber-300">New Walkout PlayStyle+ Star Signed!</div>
+                    <div id="pack-reveal-text" class="text-base font-extrabold text-white">L. Messi-Icon (OVR 93) — Incisive Pass+ & Finesse Shot+ boosted!</div>
+                </div>
+            </div>
+            <button onclick="document.getElementById('pack-reveal-banner').classList.add('hidden')" class="px-3 py-1.5 rounded-lg bg-slate-800 text-xs font-bold text-slate-200">Dismiss</button>
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 4: MANAGER CAREER, LEAGUE TABLE & TRANSFER MARKET                -->
+    <!-- ===================================================================== -->
+    <section id="view-career" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">Manager Career Hub — 2026/27 Simulation Division</h1>
+                <p class="text-xs sm:text-sm text-slate-400">Play your next fixture live in the 3D WebGL Stadium or simulate the matchday using the Monte Carlo Expected Goals (xG) engine.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="playNextCareerFixtureIn3D()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    🎮 Play Next Fixture in 3D
+                </button>
+                <button onclick="simulateCareerMatchday()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg">
+                    ⏩ Quick Sim Matchday (xG Model)
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- League Standings Table (7 cols) -->
+            <div class="lg:col-span-7 glass-panel rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-extrabold uppercase tracking-wider text-emerald-400">Division 1 Standings</h2>
+                    <span id="career-matchday-badge" class="text-xs font-mono-code text-slate-400">Matchday 1 / 14</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 text-[11px] uppercase">
+                                <th class="py-2 px-2">#</th>
+                                <th class="py-2 px-2">Club</th>
+                                <th class="py-2 px-2 text-right">OVR</th>
+                                <th class="py-2 px-2 text-right">P</th>
+                                <th class="py-2 px-2 text-right">W</th>
+                                <th class="py-2 px-2 text-right">D</th>
+                                <th class="py-2 px-2 text-right">L</th>
+                                <th class="py-2 px-2 text-right">GF:GA</th>
+                                <th class="py-2 px-2 text-right">GD</th>
+                                <th class="py-2 px-2 text-right font-bold text-white">PTS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="career-table-body" class="divide-y divide-slate-800/60 font-mono-code text-xs"></tbody>
+                    </table>
+                </div>
+
+                <!-- Latest Simulated Matchday Results Log -->
+                <div class="mt-4 pt-3 border-t border-slate-800">
+                    <div class="text-xs font-bold uppercase text-slate-400 mb-2">Latest Matchday Fixture Results & xG</div>
+                    <div id="career-results-feed" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"></div>
+                </div>
+            </div>
+
+            <!-- Transfer Market & Club Finances (5 cols) -->
+            <div class="lg:col-span-5 space-y-4">
+                <div class="glass-panel rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-extrabold uppercase tracking-wider text-amber-400">Live Transfer Market Shortlist</h2>
+                        <span id="career-budget-pill" class="font-mono-code font-bold text-xs text-emerald-400">Transfer Budget: €125.0M</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-3">Sign scouted stars to boost your Starting Squad attributes immediately.</p>
+                    <div id="transfer-market-list" class="space-y-2.5"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 5: TELEMETRY, ROLLBACK NETCODE & 240Hz WIND-TUNNEL LAB           -->
+    <!-- ===================================================================== -->
+    <section id="view-telemetry" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">Systems Engineering Telemetry: 240Hz Aerodynamics & GGPO Rollback Lab</h1>
+                <p class="text-xs sm:text-sm text-slate-400">Interactive verification suite for Magnus spin-curl trajectories, deterministic ring-buffer rollback resimulation, and live match xG shot maps.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-ws-connect" onclick="toggleWebSocketConnection()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-cyan-300">
+                    🔌 Connect FastAPI Server (ws://localhost:8000/ws)
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left 6 Cols: 240Hz Magnus Effect & Quadratic Drag Wind Tunnel -->
+            <div class="lg:col-span-6 glass-panel rounded-2xl p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-extrabold uppercase tracking-wider text-cyan-400">240Hz Ball Aerodynamics Wind-Tunnel</h2>
+                        <p class="text-xs text-slate-400">Simulates $\vec{F}_d = -\frac{1}{2}\rho A C_d \|\vec{v}\|\vec{v}$ and $\vec{F}_m = C_m(\vec{\omega} \times \vec{v})$ at $\Delta t = 4.167\text{ ms}$.</p>
+                    </div>
+                    <span id="wind-tunnel-curl-readout" class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 font-mono-code font-bold text-xs">
+                        Max Curl: 3.42 m
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Launch Speed</span>
+                            <span id="wt-val-speed" class="font-mono-code font-bold text-white">28 m/s</span>
+                        </div>
+                        <input id="wt-slider-speed" type="range" min="14" max="38" value="28" oninput="updateWindTunnelChart()" class="w-full accent-cyan-400">
+                    </div>
+                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Magnus Spin $\omega_y$</span>
+                            <span id="wt-val-spin" class="font-mono-code font-bold text-amber-300">35 rad/s</span>
+                        </div>
+                        <input id="wt-slider-spin" type="range" min="-50" max="50" value="35" oninput="updateWindTunnelChart()" class="w-full accent-amber-400">
+                    </div>
+                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Loft Angle</span>
+                            <span id="wt-val-angle" class="font-mono-code font-bold text-emerald-300">16°</span>
+                        </div>
+                        <input id="wt-slider-angle" type="range" min="4" max="38" value="16" oninput="updateWindTunnelChart()" class="w-full accent-emerald-400">
+                    </div>
+                </div>
+
+                <!-- Fixed-height container for Chart.js per Web-App rules -->
+                <div class="relative h-64 w-full bg-slate-950/90 rounded-xl p-2 border border-slate-800">
+                    <canvas id="wind-tunnel-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Right 6 Cols: GGPO Rollback Netcode Fault Injector & Ring Buffer Inspector -->
+            <div class="lg:col-span-6 glass-panel rounded-2xl p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-extrabold uppercase tracking-wider text-amber-400">GGPO Rollback Netcode & Ring-Buffer Inspector</h2>
+                        <p class="text-xs text-slate-400">Inject synthetic network latency/desync to rewind the 300-frame ring buffer and resimulate.</p>
+                    </div>
+                    <button onclick="triggerRollbackFaultInjection()" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow">
+                        ⚡ Inject Desync & Rollback
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono-code">
+                    <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[10px] text-slate-400">RING BUFFER</div>
+                        <div class="text-sm font-bold text-white">300 Frames (5s)</div>
+                    </div>
+                    <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[10px] text-slate-400">REWIND DEPTH</div>
+                        <div id="rb-stat-depth" class="text-sm font-bold text-amber-400">12 Ticks (200ms)</div>
+                    </div>
+                    <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[10px] text-slate-400">RESIM LATENCY</div>
+                        <div id="rb-stat-latency" class="text-sm font-bold text-emerald-400">0.42 ms</div>
+                    </div>
+                    <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[10px] text-slate-400">ROLLBACK COUNT</div>
+                        <div id="rb-stat-count" class="text-sm font-bold text-cyan-400">0 Events</div>
+                    </div>
+                </div>
+
+                <div class="relative h-64 w-full bg-slate-950/90 rounded-xl p-2 border border-slate-800">
+                    <canvas id="rollback-telemetry-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Bottom 12 Cols: Match Analytics & Expected Goals (xG) Spatial Shot Map -->
+            <div class="lg:col-span-12 glass-panel rounded-2xl p-4">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                    <div class="lg:col-span-5 space-y-3">
+                        <h2 class="text-sm font-extrabold uppercase tracking-wider text-emerald-400">Live Match Expected Goals (xG) & Telemetry Comparison</h2>
+                        <div id="telemetry-stats-bars" class="space-y-2.5 text-xs"></div>
+                    </div>
+                    <div class="lg:col-span-7 flex flex-col items-center">
+                        <div class="text-xs text-slate-400 mb-2 font-mono-code">2D Pitch Spatial Shot Map (Circle Radius = Shot xG • Gold = Goal • Cyan = Saved/Off-Target)</div>
+                        <canvas id="xg-shotmap-canvas" width="560" height="260" class="w-full max-w-[560px] h-auto rounded-xl border border-slate-800 bg-slate-950"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- DETERMINISTIC 240Hz ENGINE + 3D THREE.JS RENDERER + UI CONTROLLERS    -->
+    <!-- ===================================================================== -->
     <script>
-        // 1. Scene & Shadow-Enabled Renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        // --- NEW: Enable Soft Shadows ---
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.body.appendChild(renderer.domElement);
+        // -------------------------------------------------------------------
+        // 1. SYNTHESIZED WEB AUDIO API SOUND ENGINE (Zero External Audio Files)
+        // -------------------------------------------------------------------
+        let audioCtx = null;
+        let sfxMuted = false;
 
-        // --- NEW: Stadium Lighting (Afternoon Sun) ---
-        const ambientLight = new THREE.AmbientLight(0x404040, 1.2); // Soft base light
-        scene.add(ambientLight);
+        function ensureAudioCtx() {
+            if (sfxMuted) return null;
+            if (!audioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) audioCtx = new AC();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+            return audioCtx;
+        }
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 0.85);
-        sunLight.position.set(-40, 50, 30); // Angled from the top-left corner
-        sunLight.castShadow = true;
-        // Expand the shadow camera bounds to cover the entire 105x68 pitch
-        sunLight.shadow.camera.left = -60;
-        sunLight.shadow.camera.right = 60;
-        sunLight.shadow.camera.top = 40;
-        sunLight.shadow.camera.bottom = -40;
-        sunLight.shadow.mapSize.width = 2048; // High-res shadows
-        sunLight.shadow.mapSize.height = 2048;
-        scene.add(sunLight);
+        function playSfx(type) {
+            const ctx = ensureAudioCtx();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            try {
+                if (type === 'kick' || type === 'power_kick') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = type === 'power_kick' ? 'sawtooth' : 'sine';
+                    osc.frequency.setValueAtTime(type === 'power_kick' ? 145 : 115, now);
+                    osc.frequency.exponentialRampToValueAtTime(28, now + 0.14);
+                    gain.gain.setValueAtTime(0.32, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'post') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(180, now + 0.25);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.26);
+                } else if (type === 'whistle') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(2850, now);
+                    osc.frequency.setValueAtTime(2980, now + 0.08);
+                    gain.gain.setValueAtTime(0.16, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.29);
+                } else if (type === 'goal') {
+                    [261.6, 329.6, 392.0, 523.2].forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+                        gain.gain.setValueAtTime(0.14, now + idx * 0.05);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + idx * 0.05);
+                        osc.stop(now + 0.76);
+                    });
+                }
+            } catch (e) {}
+        }
 
-        // --- UPGRADED: Pitch (Lambert Material + receiveShadow) ---
-        const pitchGeometry = new THREE.PlaneGeometry(105, 68);
-        const pitchMaterial = new THREE.MeshLambertMaterial({ color: 0x2e8b57, side: THREE.DoubleSide });
-        const pitch = new THREE.Mesh(pitchGeometry, pitchMaterial);
-        pitch.rotation.x = -Math.PI / 2;
-        pitch.receiveShadow = true; // Let shadows fall on the grass
-        scene.add(pitch);
+        function toggleAudioMute() {
+            sfxMuted = !sfxMuted;
+            const btn = document.getElementById('btn-audio-toggle');
+            btn.textContent = sfxMuted ? '🔇 SFX Muted' : '🔊 SFX On';
+        }
 
-        // Draw Goalposts (Upgraded to Lambert Material)
-        function createGoal(xPos) {
+        // -------------------------------------------------------------------
+        // 2. GLOBAL GAME STATE: SQUADS, TACTICS, CAREER & TELEMETRY
+        // -------------------------------------------------------------------
+        const APP_STATE = {
+            activeTab: 'match',
+            matchFormat: '5v5',         // '5v5' or '11v11'
+            cameraPreset: 'broadcast',  // 'broadcast', 'tactical', 'pro', 'ball'
+            showMagnusArc: true,
+            showAiVectors: true,
+            isPaused: false,
+            inReplayMode: false,
+            clubBudgetMillions: 125.0,
+            progressionPoints: 24,
+            selectedSquadIndex: 0,
+            mentality: 'BALANCED',
+            formation: '1-2-1',
+            teamPlaystyle: 'Quick Counter',
+            defensiveLineHeight: 70,
+            pressRadius: 16.5,
+            teamWidth: 65,
+            rollbackCount: 0,
+            lastResimMs: 0.42,
+            homeCode: 'VPB',
+            awayCode: 'MCR',
+            shotLog: [],                // { x, z, xg, team, isGoal, scorer }
+            matchdayNumber: 1,
+            wsConnected: false,
+            ws: null
+        };
+
+        // Starting Blue Squad (Customizable via Ultimate Squad & Transfers)
+        const BLUE_SQUAD = [
+            { id: 0, name: 'K. Mbappe-Sim', number: 9, pos: 'ST', fcRole: 'Poacher+', playstyle: 'Sniper', playstylePlus: 'Finesse Shot+', ovr: 91, pac: 96, sho: 91, pas: 82, dri: 93, def: 42, phy: 80, pace: 8.2, shotPower: 28.5, curve: 40.0 },
+            { id: 1, name: 'V. Junior-Sim', number: 7, pos: 'LW', fcRole: 'Inside Forward++', playstyle: 'Speedster', playstylePlus: 'Rapid+', ovr: 90, pac: 95, sho: 86, pas: 83, dri: 94, def: 38, phy: 74, pace: 8.3, shotPower: 25.0, curve: 34.0 },
+            { id: 2, name: 'L. Yamal-Sim', number: 19, pos: 'RW', fcRole: 'Playmaker+', playstyle: 'Speedster', playstylePlus: 'Technical+', ovr: 88, pac: 89, sho: 82, pas: 88, dri: 92, def: 40, phy: 68, pace: 7.8, shotPower: 23.5, curve: 38.0 },
+            { id: 3, name: 'R. Dias-Sim', number: 3, pos: 'CB', fcRole: 'Stopper+', playstyle: 'Bruiser', playstylePlus: 'Bruiser+', ovr: 89, pac: 74, sho: 62, pas: 78, dri: 75, def: 91, phy: 90, pace: 6.7, shotPower: 21.0, curve: 15.0 },
+            { id: 4, name: 'T. Courtois-Sim', number: 1, pos: 'GK', fcRole: 'Sweeper Keeper+', playstyle: 'Goalkeeper', playstylePlus: 'Acrobatic GK+', ovr: 90, pac: 72, sho: 55, pas: 80, dri: 70, def: 89, phy: 88, pace: 7.0, shotPower: 22.0, curve: 12.0 }
+        ];
+
+        const RED_SQUAD = [
+            { id: 5, name: 'E. Haaland-Sim', number: 9, pos: 'ST', fcRole: 'Poacher+', playstyle: 'Sniper', playstylePlus: 'Power Shot+', ovr: 91, pace: 8.0, shotPower: 30.0, curve: 24.0 },
+            { id: 6, name: 'J. Bellingham-Sim', number: 5, pos: 'LW', fcRole: 'Shadow Striker+', playstyle: 'Speedster', playstylePlus: 'Relentless+', ovr: 90, pace: 7.6, shotPower: 25.5, curve: 28.0 },
+            { id: 7, name: 'P. Foden-Sim', number: 47, pos: 'RW', fcRole: 'Inside Forward+', playstyle: 'Speedster', playstylePlus: 'Finesse Shot+', ovr: 88, pace: 7.7, shotPower: 24.0, curve: 34.0 },
+            { id: 8, name: 'V. van Dijk-Sim', number: 4, pos: 'CB', fcRole: 'Ball-Playing CB+', playstyle: 'Bruiser', playstylePlus: 'Aerial+', ovr: 90, pace: 6.8, shotPower: 21.0, curve: 15.0 },
+            { id: 9, name: 'Alisson-Sim', number: 1, pos: 'GK', fcRole: 'Sweeper Keeper+', playstyle: 'Goalkeeper', playstylePlus: 'Rush Out+', ovr: 89, pace: 7.0, shotPower: 22.0, curve: 12.0 }
+        ];
+
+        // 8-Club Career Division Table
+        const CAREER_CLUBS = [
+            { code: 'VPB', name: 'VectorPitch Blue FC (You)', ovr: 90, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: true },
+            { code: 'MCR', name: 'Manchester Crimson', ovr: 90, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: false },
+            { code: 'MDR', name: 'Madrid Royal CF', ovr: 91, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: false },
+            { code: 'CAT', name: 'Catalonia Blaugrana', ovr: 89, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: false },
+            { code: 'MUN', name: 'Munich Bavaria FC', ovr: 89, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: false },
+            { code: 'LIV', name: 'Merseyside Reds', ovr: 88, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: false },
+            { code: 'MIL', name: 'Milano Nerazzurri', ovr: 87, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: false },
+            { code: 'PAR', name: 'Paris Saint-Sim', ovr: 87, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, isUser: false }
+        ];
+
+        const TRANSFER_TARGETS = [
+            { id: 101, name: 'R. Rodri-Sim', number: 16, pos: 'CB', fcRole: 'Deep-Lying Playmaker++', playstyle: 'Bruiser', playstylePlus: 'Intercept+', ovr: 91, pac: 78, sho: 84, pas: 92, dri: 86, def: 90, phy: 88, pace: 7.1, shotPower: 26.0, curve: 28.0, fee: 42.0, replaceIdx: 3, signed: false },
+            { id: 102, name: 'F. Wirtz-Sim', number: 10, pos: 'RW', fcRole: 'Playmaker++', playstyle: 'Speedster', playstylePlus: 'Incisive Pass+', ovr: 90, pac: 88, sho: 86, pas: 93, dri: 94, def: 52, phy: 74, pace: 8.0, shotPower: 25.5, curve: 39.0, replaceIdx: 2, fee: 38.0, signed: false },
+            { id: 103, name: 'M. Salah-Sim', number: 11, pos: 'LW', fcRole: 'Inside Forward++', playstyle: 'Sniper', playstylePlus: 'Finesse Shot+', ovr: 91, pac: 92, sho: 92, pas: 87, dri: 91, def: 45, phy: 78, pace: 8.35, shotPower: 27.5, curve: 43.0, replaceIdx: 1, fee: 45.0, signed: false },
+            { id: 104, name: 'G. Donnarumma-Sim', number: 99, pos: 'GK', fcRole: 'Sweeper Keeper++', playstyle: 'Goalkeeper', playstylePlus: 'Far Reach+', ovr: 91, pac: 75, sho: 55, pas: 82, dri: 74, def: 91, phy: 90, pace: 7.3, shotPower: 23.0, curve: 14.0, replaceIdx: 4, fee: 32.0, signed: false }
+        ];
+
+        // -------------------------------------------------------------------
+        // 3. DETERMINISTIC 240Hz SUB-STEPPED PHYSICS & RING-BUFFER ENGINE
+        //    (Exact in-browser port of core-sim/physics_engine.py & tactical_ai.py)
+        // -------------------------------------------------------------------
+        const PHYSICS_CONST = {
+            mass: 0.43,
+            radius: 0.11,
+            gravity: -9.81,
+            airDensity: 1.225,
+            dragCoeff: 0.25,
+            magnusCoeff: 0.005,
+            subSteps: 4,
+            dt: (1.0 / 60.0) / 4.0
+        };
+
+        const FORMATIONS_COORDS = {
+            '1-2-1': {
+                0: [[-6, 0], [-20, -14], [-20, 14], [-35, 0], [-48, 0], [-14, -6], [-14, 6], [-28, -20], [-28, 20], [-38, -8], [-38, 8]],
+                1: [[6, 0], [20, -14], [20, 14], [35, 0], [48, 0], [14, -6], [14, 6], [28, -20], [28, 20], [38, -8], [38, 8]]
+            },
+            '2-1-1': {
+                0: [[-6, 0], [-16, 0], [-30, -13], [-30, 13], [-48, 0], [-12, -12], [-12, 12], [-24, -18], [-24, 18], [-38, -6], [-38, 6]],
+                1: [[6, 0], [16, 0], [30, -13], [30, 13], [48, 0], [12, -12], [12, 12], [24, -18], [24, 18], [38, -6], [38, 6]]
+            },
+            '1-1-2': {
+                0: [[-6, -9], [-6, 9], [-21, 0], [-35, 0], [-48, 0], [-12, 0], [-22, -15], [-22, 15], [-34, -18], [-34, 18], [-40, 0]],
+                1: [[6, -9], [6, 9], [21, 0], [35, 0], [48, 0], [12, 0], [22, -15], [22, 15], [34, -18], [34, 18], [40, 0]]
+            }
+        };
+
+        const SIM_STATE = {
+            tick: 0,
+            scoreBlue: 0,
+            scoreRed: 0,
+            checksum: '00000000',
+            ball: { x: 0, y: 2.0, z: 0, vx: 0, vy: 0, vz: 0, spinX: 0, spinY: 0, spinZ: 0, lastTouch: 0, isStunning: false },
+            players: [],
+            stats: {
+                possBlue: 1, possRed: 1,
+                shotsBlue: 0, shotsRed: 0,
+                sotBlue: 0, sotRed: 0,
+                xgBlue: 0.0, xgRed: 0.0,
+                passesBlue: 0, passesRed: 0,
+                tacklesBlue: 0, tacklesRed: 0
+            },
+            ringBuffer: new Array(300).fill(null)
+        };
+
+        function computeFnvHash(state) {
+            let h = 2166136261 >>> 0;
+            const mix = (val) => {
+                const n = Math.round(val * 100) | 0;
+                h ^= (n & 0xff); h = Math.imul(h, 16777619) >>> 0;
+                h ^= ((n >> 8) & 0xff); h = Math.imul(h, 16777619) >>> 0;
+            };
+            mix(state.tick);
+            mix(state.ball.x); mix(state.ball.y); mix(state.ball.z);
+            mix(state.ball.vx); mix(state.ball.vz);
+            for (let i = 0; i < state.players.length; i++) {
+                mix(state.players[i].x);
+                mix(state.players[i].z);
+            }
+            return h.toString(16).padStart(8, '0');
+        }
+
+        function calculateShotXG(x, z, targetGoalX, isFinesse, isPower) {
+            const dx = Math.max(0.5, Math.abs(targetGoalX - x));
+            const dz = Math.abs(z);
+            const dist = Math.hypot(dx, dz);
+            const aLeft = Math.atan2(z + 3.66, dx);
+            const aRight = Math.atan2(z - 3.66, dx);
+            const visibleAngle = Math.abs(aLeft - aRight);
+            let logit = -1.65 + 2.35 * visibleAngle - 0.095 * dist;
+            if (isFinesse) logit += 0.22;
+            if (isPower) logit += 0.18;
+            const xg = 1.0 / (1.0 + Math.exp(-logit));
+            return Math.max(0.02, Math.min(0.96, xg));
+        }
+
+        function stepBallPhysics240Hz(ball) {
+            for (let s = 0; s < PHYSICS_CONST.subSteps; s++) {
+                const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy + ball.vz * ball.vz);
+                let ax = 0, ay = PHYSICS_CONST.gravity, az = 0;
+                if (speed > 0.005) {
+                    const area = Math.PI * PHYSICS_CONST.radius * PHYSICS_CONST.radius;
+                    const dragForce = 0.5 * PHYSICS_CONST.airDensity * area * PHYSICS_CONST.dragCoeff * speed * speed;
+                    const dragAccel = dragForce / PHYSICS_CONST.mass;
+                    ax -= dragAccel * (ball.vx / speed);
+                    ay -= dragAccel * (ball.vy / speed);
+                    az -= dragAccel * (ball.vz / speed);
+                }
+
+                // Magnus Effect: Spin x Velocity
+                const magAccel = PHYSICS_CONST.magnusCoeff / PHYSICS_CONST.mass;
+                const curlX = (ball.spinY * ball.vz - ball.spinZ * ball.vy) * magAccel;
+                const curlY = (ball.spinZ * ball.vx - ball.spinX * ball.vz) * magAccel;
+                const curlZ = (ball.spinX * ball.vy - ball.spinY * ball.vx) * magAccel;
+
+                ball.vx += (ax + curlX) * PHYSICS_CONST.dt;
+                ball.vy += (ay + curlY) * PHYSICS_CONST.dt;
+                ball.vz += (az + curlZ) * PHYSICS_CONST.dt;
+
+                ball.x += ball.vx * PHYSICS_CONST.dt;
+                ball.y += ball.vy * PHYSICS_CONST.dt;
+                ball.z += ball.vz * PHYSICS_CONST.dt;
+
+                // Turf bounce & grass friction
+                if (ball.y <= 0.2) {
+                    ball.y = 0.2;
+                    if (ball.vy < -0.45) {
+                        ball.vy = Math.abs(ball.vy) * 0.60;
+                    } else {
+                        ball.vy = 0;
+                    }
+                    const subFriction = Math.pow(0.86, 0.25);
+                    ball.vx *= subFriction;
+                    ball.vz *= subFriction;
+                    ball.spinY *= 0.985;
+                    ball.spinX *= 0.985;
+                }
+
+                // Goalpost collisions at X = +/-50, Z = +/-3.66
+                const posts = [[-50, -3.66], [-50, 3.66], [50, -3.66], [50, 3.66]];
+                for (let p = 0; p < posts.length; p++) {
+                    const gx = posts[p][0], gz = posts[p][1];
+                    const dx = ball.x - gx, dz = ball.z - gz;
+                    const d = Math.hypot(dx, dz);
+                    if (d > 0 && d < 0.34 && ball.y < 2.55) {
+                        const nx = dx / d, nz = dz / d;
+                        const dot = ball.vx * nx + ball.vz * nz;
+                        if (dot < 0) {
+                            ball.vx = (ball.vx - 2 * dot * nx) * 0.75;
+                            ball.vz = (ball.vz - 2 * dot * nz) * 0.75;
+                            ball.x += nx * (0.34 - d);
+                            ball.z += nz * (0.34 - d);
+                            playSfx('post');
+                        }
+                    }
+                }
+            }
+        }
+
+        function spawnMatchPlayers() {
+            SIM_STATE.players = [];
+            const perTeam = APP_STATE.matchFormat === '11v11' ? 11 : 5;
+            const formCoords = FORMATIONS_COORDS[APP_STATE.formation] || FORMATIONS_COORDS['1-2-1'];
+
+            for (let team = 0; team < 2; team++) {
+                for (let idx = 0; idx < perTeam; idx++) {
+                    const baseRoster = team === 0 ? BLUE_SQUAD : RED_SQUAD;
+                    const template = baseRoster[idx % 5];
+                    const isGK = (idx === 4);
+                    const coords = formCoords[team][idx];
+                    SIM_STATE.players.push({
+                        id: SIM_STATE.players.length,
+                        team: team,
+                        teamSlot: idx,
+                        name: idx < 5 ? template.name : `${template.name.split('-')[0]} #${idx + 6}`,
+                        number: idx < 5 ? template.number : idx + 6,
+                        playstyle: isGK ? 'Goalkeeper' : template.playstyle,
+                        playstylePlus: isGK ? 'Acrobatic GK+' : template.playstylePlus,
+                        fcRole: template.fcRole,
+                        pace: template.pace,
+                        shotPower: template.shotPower,
+                        curve: template.curve,
+                        x: coords[0],
+                        y: 0.9,
+                        z: coords[1],
+                        vx: 0,
+                        vz: 0,
+                        angle: team === 0 ? 0 : Math.PI,
+                        stamina: 100.0,
+                        pose: 0,
+                        phase: Math.random() * 6.28,
+                        hasPossession: false,
+                        isHuman: (team === 0 && idx === 0),
+                        tackleCooldown: 0
+                    });
+                }
+            }
+        }
+
+        // -------------------------------------------------------------------
+        // 4. INPUT CONTROLLER (Keyboard + Touch Gamepad + Charge Bar)
+        // -------------------------------------------------------------------
+        const INPUT_KEYS = {
+            w: false, a: false, s: false, d: false,
+            arrowup: false, arrowleft: false, arrowdown: false, arrowright: false,
+            shift: false, ' ': false, r: false, g: false, e: false, q: false, f: false, x: false
+        };
+        let padDirX = 0, padDirZ = 0;
+        let padSprintLocked = false;
+        let shotChargeBar = 0.0;
+        let pendingAction = null; // 'shoot', 'finesse', 'stunning', 'pass', 'through', 'lob', 'tackle'
+
+        window.addEventListener('keydown', (ev) => {
+            if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'SELECT')) return;
+            const k = ev.key.toLowerCase();
+            if (k === '1') { setLiveMentality('ULTRA_DEFENSIVE'); return; }
+            if (k === '2') { setLiveMentality('BALANCED'); return; }
+            if (k === '3') { setLiveMentality('GEGENPRESS'); return; }
+            if (k === '4') { setLiveMentality('ALL_OUT_ATTACK'); return; }
+            if (k === 'c') { switchHumanToClosestPlayer(); ev.preventDefault(); return; }
+            if (INPUT_KEYS.hasOwnProperty(k)) {
+                INPUT_KEYS[k] = true;
+                if (k === ' ' || k.startsWith('arrow')) ev.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (ev) => {
+            if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'SELECT')) return;
+            const k = ev.key.toLowerCase();
+            if (INPUT_KEYS.hasOwnProperty(k)) {
+                if (k === ' ' && INPUT_KEYS[' ']) pendingAction = 'shoot';
+                if (k === 'r' && INPUT_KEYS.r) pendingAction = 'finesse';
+                if (k === 'g' && INPUT_KEYS.g) pendingAction = 'stunning';
+                if (k === 'e' && INPUT_KEYS.e) pendingAction = 'pass';
+                if (k === 'q' && INPUT_KEYS.q) pendingAction = 'through';
+                if (k === 'f' && INPUT_KEYS.f) pendingAction = 'lob';
+                if (k === 'x' && INPUT_KEYS.x) pendingAction = 'tackle';
+                INPUT_KEYS[k] = false;
+            }
+        });
+
+        function setPadDir(dx, dz) {
+            padDirX = dx;
+            padDirZ = dz;
+        }
+
+        function triggerHumanSprintToggle() {
+            padSprintLocked = !padSprintLocked;
+            const btn = document.getElementById('pad-sprint-btn');
+            if (btn) {
+                btn.className = padSprintLocked
+                    ? 'bg-amber-400 text-slate-950 rounded flex items-center justify-center font-extrabold text-[9px]'
+                    : 'bg-slate-900 hover:bg-slate-800 rounded flex items-center justify-center font-extrabold text-[9px] text-amber-300 border border-amber-500/40';
+            }
+        }
+
+        function executeGamepadAction(act) {
+            ensureAudioCtx();
+            if (act === 'switch') {
+                switchHumanToClosestPlayer();
+                return;
+            }
+            shotChargeBar = 0.82;
+            pendingAction = act;
+        }
+
+        function switchHumanToClosestPlayer() {
+            let bestIdx = 0;
+            let bestDist = Infinity;
+            for (let i = 0; i < SIM_STATE.players.length; i++) {
+                const p = SIM_STATE.players[i];
+                if (p.team === 0 && p.playstyle !== 'Goalkeeper') {
+                    const d = Math.hypot(SIM_STATE.ball.x - p.x, SIM_STATE.ball.z - p.z);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestIdx = i;
+                    }
+                }
+            }
+            SIM_STATE.players.forEach((p, idx) => {
+                if (p.team === 0) p.isHuman = (idx === bestIdx);
+            });
+            updateActivePlayerHudStrip();
+        }
+
+        // -------------------------------------------------------------------
+        // 5. MAIN 60Hz DETERMINISTIC SIMULATION STEP
+        // -------------------------------------------------------------------
+        function stepSimulation60Hz() {
+            if (APP_STATE.isPaused || APP_STATE.inReplayMode) return;
+
+            // Charge bar accumulation when holding shoot keys
+            if (INPUT_KEYS[' '] || INPUT_KEYS.r || INPUT_KEYS.g) {
+                shotChargeBar = Math.min(1.0, shotChargeBar + 0.035);
+            }
+
+            // 1. Sub-stepped 240Hz Ball Physics
+            stepBallPhysics240Hz(SIM_STATE.ball);
+
+            const formCoords = FORMATIONS_COORDS[APP_STATE.formation] || FORMATIONS_COORDS['1-2-1'];
+            const mentShiftMap = { ULTRA_DEFENSIVE: -11, BALANCED: 0, GEGENPRESS: 7.5, ALL_OUT_ATTACK: 13 };
+            const blueShift = mentShiftMap[APP_STATE.mentality] || 0;
+
+            // Find closest outfield player per team to the ball so only 1-2 players actively press
+            let closestBlueIdx = 0, closestRedIdx = 5;
+            let minBlueD = Infinity, minRedD = Infinity;
+            SIM_STATE.players.forEach((p, idx) => {
+                if (p.playstyle === 'Goalkeeper') return;
+                const d = Math.hypot(SIM_STATE.ball.x - p.x, SIM_STATE.ball.z - p.z);
+                if (p.team === 0 && d < minBlueD) { minBlueD = d; closestBlueIdx = idx; }
+                if (p.team === 1 && d < minRedD) { minRedD = d; closestRedIdx = idx; }
+            });
+
+            // 2. Update All Players (GK + Outfield AI + Human Control)
+            for (let i = 0; i < SIM_STATE.players.length; i++) {
+                const p = SIM_STATE.players[i];
+                if (p.tackleCooldown > 0) p.tackleCooldown--;
+
+                // A. Goalkeeper Logic
+                if (p.playstyle === 'Goalkeeper') {
+                    const targetX = p.team === 0 ? -48.2 : 48.2;
+                    const targetZ = Math.max(-3.66, Math.min(3.66, SIM_STATE.ball.z));
+                    const dx = targetX - p.x, dz = targetZ - p.z;
+                    const dist = Math.hypot(dx, dz);
+                    if (dist > 0.08) {
+                        const gkSpeed = 7.4 * (1 / 60);
+                        p.x += (dx / dist) * gkSpeed;
+                        p.z += (dz / dist) * gkSpeed;
+                        p.phase += 0.22;
+                    }
+                    p.angle = Math.atan2(SIM_STATE.ball.z - p.z, SIM_STATE.ball.x - p.x);
+
+                    // GK Reflex Save / Clearance
+                    const dBall = Math.hypot(SIM_STATE.ball.x - p.x, SIM_STATE.ball.z - p.z);
+                    if (dBall < 0.95 && SIM_STATE.ball.y < 2.35) {
+                        const clearDir = p.team === 0 ? 1 : -1;
+                        SIM_STATE.ball.vx = clearDir * 22.0;
+                        SIM_STATE.ball.vy = 7.2;
+                        SIM_STATE.ball.vz = (Math.random() - 0.5) * 14.0;
+                        SIM_STATE.ball.spinY = 0;
+                        SIM_STATE.ball.isStunning = false;
+                        playSfx('kick');
+                        setCommentary(`${p.name} (${p.playstylePlus}) makes a reflex save and clears!`);
+                    }
+                    continue;
+                }
+
+                // B. Outfield Player Logic
+                const baseAnchor = formCoords[p.team][p.teamSlot] || [0, 0];
+                const shift = p.team === 0 ? blueShift : 0;
+                const homeX = Math.max(-45, Math.min(45, baseAnchor[0] + shift));
+                const homeZ = baseAnchor[1] * (APP_STATE.teamWidth / 65.0);
+
+                const dxBall = SIM_STATE.ball.x - p.x;
+                const dzBall = SIM_STATE.ball.z - p.z;
+                const distToBall = Math.hypot(dxBall, dzBall);
+                const tackleRadius = p.playstyle === 'Bruiser' ? 0.92 : 0.68;
+
+                // Standing / Lunging Tackle Action (Key X)
+                if (p.isHuman && pendingAction === 'tackle' && p.tackleCooldown === 0) {
+                    p.tackleCooldown = 35;
+                    p.x += Math.cos(p.angle) * 1.15;
+                    p.z += Math.sin(p.angle) * 1.15;
+                    if (distToBall < 1.8) {
+                        SIM_STATE.ball.vx = Math.cos(p.angle) * 14.0;
+                        SIM_STATE.ball.vz = Math.sin(p.angle) * 14.0;
+                        SIM_STATE.stats.tacklesBlue++;
+                        playSfx('kick');
+                        setCommentary(`${p.name} wins a crunching tackle!`);
+                    }
+                    pendingAction = null;
+                }
+
+                // Possession & Ball Interaction
+                if (distToBall < tackleRadius && SIM_STATE.ball.y < 1.35) {
+                    p.hasPossession = true;
+                    SIM_STATE.ball.lastTouch = i;
+                    if (p.team === 0) SIM_STATE.stats.possBlue++;
+                    else SIM_STATE.stats.possRed++;
+
+                    if (p.isHuman) {
+                        // Gentle dribble touch in front of human runner
+                        if (!pendingAction && (Math.abs(p.vx) > 0.1 || Math.abs(p.vz) > 0.1)) {
+                            SIM_STATE.ball.x = p.x + Math.cos(p.angle) * 0.52;
+                            SIM_STATE.ball.z = p.z + Math.sin(p.angle) * 0.52;
+                            SIM_STATE.ball.vx = p.vx * 1.05;
+                            SIM_STATE.ball.vz = p.vz * 1.05;
+                        }
+
+                        // Execute Human Pass / Through / Lob / Shoot
+                        if (pendingAction === 'pass' || pendingAction === 'through' || pendingAction === 'lob') {
+                            const mate = findTargetTeammate(p, pendingAction === 'lob');
+                            if (mate) {
+                                const leadX = pendingAction === 'through' ? 6.5 : 0;
+                                const pdx = (mate.x + leadX) - p.x;
+                                const pdz = mate.z - p.z;
+                                const pmag = Math.max(0.1, Math.hypot(pdx, pdz));
+                                const speed = pendingAction === 'lob' ? 18.5 : (pendingAction === 'through' ? 23.0 : 20.5);
+                                SIM_STATE.ball.vx = (pdx / pmag) * speed;
+                                SIM_STATE.ball.vy = pendingAction === 'lob' ? 8.2 : 1.1;
+                                SIM_STATE.ball.vz = (pdz / pmag) * speed;
+                                SIM_STATE.ball.spinY = pendingAction === 'lob' ? 14.0 : 0.0;
+                                SIM_STATE.ball.isStunning = false;
+                                SIM_STATE.stats.passesBlue++;
+                                playSfx('kick');
+                                setCommentary(`${p.name} plays a ${pendingAction.toUpperCase()} ball to ${mate.name}!`);
+                                // Auto-switch control to receiver
+                                SIM_STATE.players.forEach(pl => { if (pl.team === 0) pl.isHuman = (pl.id === mate.id); });
+                                updateActivePlayerHudStrip();
+                            }
+                            pendingAction = null;
+                            shotChargeBar = 0;
+                        } else if (pendingAction === 'shoot' || pendingAction === 'finesse' || pendingAction === 'stunning') {
+                            const isFinesse = (pendingAction === 'finesse');
+                            const isStunning = (pendingAction === 'stunning');
+                            const goalX = 50.0;
+                            const aimZ = (Math.random() - 0.5) * 4.8;
+                            const kdx = goalX - p.x;
+                            const kdz = aimZ - p.z;
+                            const kmag = Math.max(0.1, Math.hypot(kdx, kdz));
+                            const chargeMult = 0.72 + 0.45 * Math.max(0.35, shotChargeBar);
+                            const power = p.shotPower * chargeMult * (isStunning ? 1.24 : 1.0);
+
+                            SIM_STATE.ball.vx = (kdx / kmag) * power;
+                            SIM_STATE.ball.vy = (isStunning ? 3.8 : 4.6) * chargeMult;
+                            SIM_STATE.ball.vz = (kdz / kmag) * power;
+                            SIM_STATE.ball.spinY = isFinesse ? (aimZ >= 0 ? p.curve * 1.2 : -p.curve * 1.2) : (Math.random() - 0.5) * p.curve;
+                            SIM_STATE.ball.isStunning = isStunning;
+
+                            const xg = calculateShotXG(p.x, p.z, goalX, isFinesse, isStunning);
+                            SIM_STATE.stats.shotsBlue++;
+                            SIM_STATE.stats.sotBlue++;
+                            SIM_STATE.stats.xgBlue = +(SIM_STATE.stats.xgBlue + xg).toFixed(2);
+                            APP_STATE.shotLog.push({ x: p.x, z: p.z, xg, team: 0, isGoal: false, scorer: p.name });
+
+                            playSfx(isStunning ? 'power_kick' : 'kick');
+                            setCommentary(`${p.name} unleashes a ${isFinesse ? 'Finesse Shot+' : (isStunning ? 'Stunning Power Shot' : 'Driven Strike')} (xG: ${xg.toFixed(2)})!`);
+                            pendingAction = null;
+                            shotChargeBar = 0;
+                        }
+                    } else {
+                        // AI Decision: Pass to advanced teammate or shoot toward goal
+                        const goalX = p.team === 0 ? 50.0 : -50.0;
+                        const distGoal = Math.abs(goalX - p.x);
+                        if (distGoal > 27.0 && Math.random() < 0.72) {
+                            const mate = findTargetTeammate(p, false);
+                            if (mate) {
+                                const pdx = mate.x - p.x, pdz = mate.z - p.z;
+                                const pmag = Math.max(0.1, Math.hypot(pdx, pdz));
+                                SIM_STATE.ball.vx = (pdx / pmag) * 19.5;
+                                SIM_STATE.ball.vy = 1.4;
+                                SIM_STATE.ball.vz = (pdz / pmag) * 19.5;
+                                if (p.team === 0) SIM_STATE.stats.passesBlue++;
+                                else SIM_STATE.stats.passesRed++;
+                                playSfx('kick');
+                            }
+                        } else {
+                            const aimZ = (Math.random() - 0.5) * 4.5;
+                            const kdx = goalX - p.x, kdz = aimZ - p.z;
+                            const kmag = Math.max(0.1, Math.hypot(kdx, kdz));
+                            SIM_STATE.ball.vx = (kdx / kmag) * p.shotPower;
+                            SIM_STATE.ball.vy = 3.5 + Math.random() * 2.4;
+                            SIM_STATE.ball.vz = (kdz / kmag) * p.shotPower;
+                            SIM_STATE.ball.spinY = (Math.random() - 0.5) * p.curve;
+                            SIM_STATE.ball.isStunning = false;
+
+                            const xg = calculateShotXG(p.x, p.z, goalX, false, false);
+                            if (p.team === 0) {
+                                SIM_STATE.stats.shotsBlue++;
+                                SIM_STATE.stats.sotBlue++;
+                                SIM_STATE.stats.xgBlue = +(SIM_STATE.stats.xgBlue + xg).toFixed(2);
+                            } else {
+                                SIM_STATE.stats.shotsRed++;
+                                SIM_STATE.stats.sotRed++;
+                                SIM_STATE.stats.xgRed = +(SIM_STATE.stats.xgRed + xg).toFixed(2);
+                            }
+                            APP_STATE.shotLog.push({ x: p.x, z: p.z, xg, team: p.team, isGoal: false, scorer: p.name });
+                            playSfx('kick');
+                            setCommentary(`${p.name} strikes toward goal (xG: ${xg.toFixed(2)})!`);
+                        }
+                    }
+                } else {
+                    p.hasPossession = false;
+                }
+
+                // Movement & Kinematic Integration
+                if (p.isHuman) {
+                    let dx = padDirX, dz = padDirZ;
+                    if (INPUT_KEYS.w || INPUT_KEYS.arrowup) dz = -1;
+                    if (INPUT_KEYS.s || INPUT_KEYS.arrowdown) dz = 1;
+                    if (INPUT_KEYS.a || INPUT_KEYS.arrowleft) dx = -1;
+                    if (INPUT_KEYS.d || INPUT_KEYS.arrowright) dx = 1;
+
+                    const sprinting = (INPUT_KEYS.shift || padSprintLocked) && p.stamina > 5;
+                    if (sprinting && (dx !== 0 || dz !== 0)) p.stamina = Math.max(0, p.stamina - 0.08);
+                    else p.stamina = Math.min(100, p.stamina + 0.035);
+
+                    const staminaFactor = 0.76 + 0.24 * (p.stamina / 100);
+                    const effSpeed = p.pace * staminaFactor * (sprinting ? 1.45 : 1.0);
+
+                    const mag = Math.hypot(dx, dz);
+                    if (mag > 0) {
+                        p.vx = (dx / mag) * effSpeed;
+                        p.vz = (dz / mag) * effSpeed;
+                        p.x = Math.max(-51, Math.min(51, p.x + p.vx * (1 / 60)));
+                        p.z = Math.max(-33, Math.min(33, p.z + p.vz * (1 / 60)));
+                        p.angle = Math.atan2(dz, dx);
+                        p.pose = sprinting ? 2 : 1;
+                        p.phase += (effSpeed / 60) * 3.4;
+                    } else {
+                        p.vx = 0; p.vz = 0; p.pose = 0;
+                    }
+                } else {
+                    p.stamina = Math.min(100, p.stamina + 0.02);
+                    const isPrimaryPresser = (i === closestBlueIdx || i === closestRedIdx);
+                    const pressRad = APP_STATE.pressRadius;
+                    const chaseBall = isPrimaryPresser || distToBall < pressRad;
+                    const tx = chaseBall ? SIM_STATE.ball.x : (homeX + SIM_STATE.ball.x * 0.22);
+                    const tz = chaseBall ? SIM_STATE.ball.z : (homeZ + SIM_STATE.ball.z * 0.22);
+                    const dxT = tx - p.x, dzT = tz - p.z;
+                    const distT = Math.hypot(dxT, dzT);
+
+                    if (distT > 0.25 && !p.hasPossession) {
+                        const aiSpeed = p.pace * 0.92;
+                        p.vx = (dxT / distT) * aiSpeed;
+                        p.vz = (dzT / distT) * aiSpeed;
+                        p.x = Math.max(-51, Math.min(51, p.x + p.vx * (1 / 60)));
+                        p.z = Math.max(-33, Math.min(33, p.z + p.vz * (1 / 60)));
+                        p.pose = 1;
+                        p.phase += (aiSpeed / 60) * 3.1;
+                    } else {
+                        p.vx = 0; p.vz = 0; p.pose = 0;
+                    }
+                    p.angle = Math.atan2(dzBall, dxBall);
+                }
+            }
+
+            // 3. Player-Player & Ball-Player Cylinder Collisions
+            for (let i = 0; i < SIM_STATE.players.length; i++) {
+                for (let j = i + 1; j < SIM_STATE.players.length; j++) {
+                    const p1 = SIM_STATE.players[i], p2 = SIM_STATE.players[j];
+                    const dx = p2.x - p1.x, dz = p2.z - p1.z;
+                    const dist = Math.hypot(dx, dz);
+                    if (dist > 0 && dist < 0.82) {
+                        const overlap = (0.82 - dist) * 0.5;
+                        const nx = dx / dist, nz = dz / dist;
+                        p1.x -= nx * overlap; p1.z -= nz * overlap;
+                        p2.x += nx * overlap; p2.z += nz * overlap;
+                    }
+                }
+            }
+
+            for (let i = 0; i < SIM_STATE.players.length; i++) {
+                const p = SIM_STATE.players[i];
+                const dx = SIM_STATE.ball.x - p.x, dz = SIM_STATE.ball.z - p.z;
+                const dist = Math.hypot(dx, dz);
+                if (dist > 0 && dist < 0.58 && SIM_STATE.ball.y < 1.8) {
+                    const nx = dx / dist, nz = dz / dist;
+                    const dot = SIM_STATE.ball.vx * nx + SIM_STATE.ball.vz * nz;
+                    if (dot < 0) {
+                        SIM_STATE.ball.vx = (SIM_STATE.ball.vx - 2 * dot * nx) * 0.52;
+                        SIM_STATE.ball.vz = (SIM_STATE.ball.vz - 2 * dot * nz) * 0.52;
+                        SIM_STATE.ball.x += nx * (0.58 - dist);
+                        SIM_STATE.ball.z += nz * (0.58 - dist);
+                    }
+                }
+            }
+
+            // 4. Referee Goal Detection & Boundary Reset
+            if (Math.abs(SIM_STATE.ball.x) > 50.0) {
+                if (Math.abs(SIM_STATE.ball.z) < 3.66 && SIM_STATE.ball.y < 2.44) {
+                    const isBlueGoal = SIM_STATE.ball.x > 50.0;
+                    if (isBlueGoal) {
+                        SIM_STATE.scoreBlue++;
+                        APP_STATE.progressionPoints += 2;
+                    } else {
+                        SIM_STATE.scoreRed++;
+                    }
+                    const scorerObj = SIM_STATE.players[SIM_STATE.ball.lastTouch] || SIM_STATE.players[0];
+                    if (APP_STATE.shotLog.length > 0) {
+                        APP_STATE.shotLog[APP_STATE.shotLog.length - 1].isGoal = true;
+                    }
+                    const speedKmh = (Math.hypot(SIM_STATE.ball.vx, SIM_STATE.ball.vy, SIM_STATE.ball.vz) * 3.6).toFixed(0);
+                    triggerGoalBanner(`${scorerObj.name} (${scorerObj.playstylePlus}) • ${speedKmh} km/h`);
+                    playSfx('goal');
+                    updateHeaderCurrencies();
+                } else {
+                    playSfx('whistle');
+                    setCommentary('Goal kick / Corner restart — Ball reset to midfield.');
+                }
+                resetBallToCenter();
+            } else if (Math.abs(SIM_STATE.ball.z) > 34.0) {
+                playSfx('whistle');
+                setCommentary('Touchline out-of-bounds — Quick restart.');
+                resetBallToCenter();
+            }
+
+            // 5. Save Deterministic Snapshot into 300-Frame Ring Buffer
+            SIM_STATE.checksum = computeFnvHash(SIM_STATE);
+            SIM_STATE.ringBuffer[SIM_STATE.tick % 300] = {
+                tick: SIM_STATE.tick,
+                checksum: SIM_STATE.checksum,
+                ball: { ...SIM_STATE.ball },
+                players: SIM_STATE.players.map(p => ({ ...p }))
+            };
+            SIM_STATE.tick++;
+        }
+
+        function findTargetTeammate(passer, preferFurthest) {
+            let best = null;
+            let bestScore = preferFurthest ? -Infinity : Infinity;
+            for (let i = 0; i < SIM_STATE.players.length; i++) {
+                const m = SIM_STATE.players[i];
+                if (m.team !== passer.team || m.id === passer.id || m.playstyle === 'Goalkeeper') continue;
+                const d = Math.hypot(m.x - passer.x, m.z - passer.z);
+                if (preferFurthest) {
+                    if (d > bestScore) { bestScore = d; best = m; }
+                } else {
+                    if (d < bestScore) { bestScore = d; best = m; }
+                }
+            }
+            return best;
+        }
+
+        function resetBallToCenter() {
+            SIM_STATE.ball.x = 0;
+            SIM_STATE.ball.y = 5.5;
+            SIM_STATE.ball.z = 0;
+            SIM_STATE.ball.vx = 0;
+            SIM_STATE.ball.vy = -1.5;
+            SIM_STATE.ball.vz = 0;
+            SIM_STATE.ball.spinY = 0;
+            SIM_STATE.ball.isStunning = false;
+        }
+
+        function resetMatchScoreAndKickoff() {
+            SIM_STATE.scoreBlue = 0;
+            SIM_STATE.scoreRed = 0;
+            SIM_STATE.tick = 0;
+            SIM_STATE.stats = {
+                possBlue: 1, possRed: 1, shotsBlue: 0, shotsRed: 0,
+                sotBlue: 0, sotRed: 0, xgBlue: 0, xgRed: 0,
+                passesBlue: 0, passesRed: 0, tacklesBlue: 0, tacklesRed: 0
+            };
+            APP_STATE.shotLog = [];
+            spawnMatchPlayers();
+            rebuild3DPlayerMeshes();
+            resetBallToCenter();
+            playSfx('whistle');
+            setCommentary('Fresh Kickoff! Match state and telemetry reset.');
+        }
+
+        function triggerGoalBanner(detailText) {
+            const banner = document.getElementById('goal-banner-overlay');
+            const detail = document.getElementById('goal-banner-details');
+            if (banner && detail) {
+                detail.textContent = detailText;
+                banner.classList.remove('hidden');
+                setTimeout(() => banner.classList.add('hidden'), 2200);
+            }
+        }
+
+        function setCommentary(text) {
+            const el = document.getElementById('hud-commentary-pill');
+            if (el) el.textContent = text;
+        }
+
+        // -------------------------------------------------------------------
+        // 6. THREE.JS 3D WEBGL STADIUM, ARTICULATED PLAYERS & TRAJECTORY ARC
+        // -------------------------------------------------------------------
+        let scene, camera, renderer;
+        let ballMesh, possessionRing, humanArrowMesh, trajectoryLine, aiVectorGroup;
+        let playerMeshGroups = [];
+
+        function initThreeStadium() {
+            const container = document.getElementById('three-canvas-Mount');
+            const w = container.clientWidth || window.innerWidth;
+            const h = container.clientHeight || 560;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x060c18);
+            scene.fog = new THREE.FogExp2(0x060c18, 0.0045);
+
+            camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 500);
+            camera.position.set(0, 38, 48);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambient = new THREE.AmbientLight(0x94a3b8, 0.95);
+            scene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 1.05);
+            sun.position.set(-35, 58, 32);
+            sun.castShadow = true;
+            sun.shadow.camera.left = -60;
+            sun.shadow.camera.right = 60;
+            sun.shadow.camera.top = 42;
+            sun.shadow.camera.bottom = -42;
+            sun.shadow.mapSize.width = 2048;
+            sun.shadow.mapSize.height = 2048;
+            scene.add(sun);
+
+            // Striped FIFA Pitch (105m x 68m)
+            const pitchGroup = new THREE.Group();
+            const stripeCount = 14;
+            const stripeWidth = 105 / stripeCount;
+            for (let i = 0; i < stripeCount; i++) {
+                const col = i % 2 === 0 ? 0x1b6b45 : 0x165a3a;
+                const geo = new THREE.PlaneGeometry(stripeWidth, 68);
+                const mat = new THREE.MeshLambertMaterial({ color: col });
+                const stripe = new THREE.Mesh(geo, mat);
+                stripe.rotation.x = -Math.PI / 2;
+                stripe.position.x = -52.5 + stripeWidth * (i + 0.5);
+                stripe.receiveShadow = true;
+                pitchGroup.add(stripe);
+            }
+            // Outer dark turf apron
+            const apronGeo = new THREE.PlaneGeometry(122, 84);
+            const apronMat = new THREE.MeshLambertMaterial({ color: 0x0d3321 });
+            const apron = new THREE.Mesh(apronGeo, apronMat);
+            apron.rotation.x = -Math.PI / 2;
+            apron.position.y = -0.02;
+            pitchGroup.add(apron);
+            scene.add(pitchGroup);
+
+            // Pitch Markings & Penalty Boxes
+            buildPitchMarkings3D();
+
+            // 3D Goalposts with Nets at X = -50 and X = +50
+            buildGoalpostWithNet(-50.0, 1);
+            buildGoalpostWithNet(50.0, -1);
+
+            // Stadium Perimeter LED Boards & Floodlights
+            buildStadiumPerimeter();
+
+            // Ball Mesh
+            const ballGeo = new THREE.SphereGeometry(0.28, 24, 24);
+            const ballMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+            ballMesh = new THREE.Mesh(ballGeo, ballMat);
+            ballMesh.castShadow = true;
+            scene.add(ballMesh);
+
+            // Possession Ring & Human Overhead Marker
+            const ringGeo = new THREE.RingGeometry(0.55, 0.78, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide });
+            possessionRing = new THREE.Mesh(ringGeo, ringMat);
+            possessionRing.rotation.x = -Math.PI / 2;
+            possessionRing.position.y = 0.04;
+            scene.add(possessionRing);
+
+            const coneGeo = new THREE.ConeGeometry(0.28, 0.55, 4);
+            const coneMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+            humanArrowMesh = new THREE.Mesh(coneGeo, coneMat);
+            humanArrowMesh.rotation.x = Math.PI;
+            scene.add(humanArrowMesh);
+
+            // Magnus Ball Trajectory Prediction Line
+            const arcPoints = [];
+            for (let i = 0; i < 45; i++) arcPoints.push(new THREE.Vector3(0, 0.2, 0));
+            const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPoints);
+            const arcMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+            trajectoryLine = new THREE.Line(arcGeo, arcMat);
+            scene.add(trajectoryLine);
+
+            // AI Tactical Passing / Run Vector Group
+            aiVectorGroup = new THREE.Group();
+            scene.add(aiVectorGroup);
+
+            rebuild3DPlayerMeshes();
+
+            window.addEventListener('resize', onViewportResize);
+        }
+
+        function buildPitchMarkings3D() {
+            const markings = new THREE.Group();
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+            const addLine = (x1, z1, x2, z2) => {
+                const geo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(x1, 0.03, z1),
+                    new THREE.Vector3(x2, 0.03, z2)
+                ]);
+                markings.add(new THREE.Line(geo, lineMat));
+            };
+            // Outer boundaries (X = -50 to 50, Z = -34 to 34)
+            addLine(-50, -34, 50, -34);
+            addLine(-50, 34, 50, 34);
+            addLine(-50, -34, -50, 34);
+            addLine(50, -34, 50, 34);
+            addLine(0, -34, 0, 34);
+
+            // Penalty Boxes
+            addLine(-50, -20.16, -33.5, -20.16);
+            addLine(-50, 20.16, -33.5, 20.16);
+            addLine(-33.5, -20.16, -33.5, 20.16);
+            addLine(50, -20.16, 33.5, -20.16);
+            addLine(50, 20.16, 33.5, 20.16);
+            addLine(33.5, -20.16, 33.5, 20.16);
+
+            // 6-Yard Goal Boxes
+            addLine(-50, -9.16, -44.5, -9.16);
+            addLine(-50, 9.16, -44.5, 9.16);
+            addLine(-44.5, -9.16, -44.5, 9.16);
+            addLine(50, -9.16, 44.5, -9.16);
+            addLine(50, 9.16, 44.5, 9.16);
+            addLine(44.5, -9.16, 44.5, 9.16);
+
+            const circleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            const centerCircle = new THREE.Mesh(new THREE.RingGeometry(9.05, 9.25, 64), circleMat);
+            centerCircle.rotation.x = -Math.PI / 2;
+            centerCircle.position.y = 0.03;
+            markings.add(centerCircle);
+
+            const centerDot = new THREE.Mesh(new THREE.CircleGeometry(0.32, 16), circleMat);
+            centerDot.rotation.x = -Math.PI / 2;
+            centerDot.position.y = 0.03;
+            markings.add(centerDot);
+
+            scene.add(markings);
+        }
+
+        function buildGoalpostWithNet(xPos, depthDir) {
             const goalGroup = new THREE.Group();
-            const postGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.44, 8);
-            const barGeo = new THREE.CylinderGeometry(0.2, 0.2, 7.32, 8);  
-            const goalMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); 
+            const postGeo = new THREE.CylinderGeometry(0.12, 0.12, 2.44, 12);
+            const barGeo = new THREE.CylinderGeometry(0.12, 0.12, 7.32, 12);
+            const goalMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 
             const leftPost = new THREE.Mesh(postGeo, goalMat);
             leftPost.position.set(0, 1.22, 3.66);
             leftPost.castShadow = true;
-            
+
             const rightPost = new THREE.Mesh(postGeo, goalMat);
             rightPost.position.set(0, 1.22, -3.66);
             rightPost.castShadow = true;
-            
+
             const crossbar = new THREE.Mesh(barGeo, goalMat);
             crossbar.rotation.x = Math.PI / 2;
             crossbar.position.set(0, 2.44, 0);
             crossbar.castShadow = true;
 
-            goalGroup.add(leftPost); goalGroup.add(rightPost); goalGroup.add(crossbar);
+            // Wireframe Goal Net Box
+            const netGeo = new THREE.BoxGeometry(1.8, 2.44, 7.32);
+            const netMat = new THREE.MeshBasicMaterial({ color: 0xcbd5e1, wireframe: true, transparent: true, opacity: 0.35 });
+            const netMesh = new THREE.Mesh(netGeo, netMat);
+            netMesh.position.set(-depthDir * 0.9, 1.22, 0);
+
+            goalGroup.add(leftPost, rightPost, crossbar, netMesh);
             goalGroup.position.set(xPos, 0, 0);
             scene.add(goalGroup);
         }
-        createGoal(-52.5); createGoal(52.5);
 
-        // Draw Pitch Markings (Stays Basic Material so they glow bright white)
-        function createPitchMarkings() {
-            const markings = new THREE.Group();
-            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
-            function drawLine(x1, z1, x2, z2) {
-                const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1, 0.02, z1), new THREE.Vector3(x2, 0.02, z2)]);
-                markings.add(new THREE.Line(geo, lineMat));
-            }
-            drawLine(-52.5, -34, 52.5, -34); drawLine(-52.5, 34, 52.5, 34);
-            drawLine(-52.5, -34, -52.5, 34); drawLine(52.5, -34, 52.5, 34); drawLine(0, -34, 0, 34);
-            
-            const circleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-            const centerCircle = new THREE.Mesh(new THREE.RingGeometry(9.15, 9.35, 64), circleMat);
-            centerCircle.rotation.x = -Math.PI / 2; centerCircle.position.y = 0.02; markings.add(centerCircle);
-            const centerDot = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16), circleMat);
-            centerDot.rotation.x = -Math.PI / 2; centerDot.position.y = 0.02; markings.add(centerDot);
-            
-            drawLine(-52.5, -20.16, -36, -20.16); drawLine(-52.5, 20.16, -36, 20.16); drawLine(-36, -20.16, -36, 20.16);
-            drawLine(52.5, -20.16, 36, -20.16); drawLine(52.5, 20.16, 36, 20.16); drawLine(36, -20.16, 36, 20.16);
-            scene.add(markings);
-        }
-        createPitchMarkings();
-
-        // --- UPGRADED: Ball (Lambert + castShadow) ---
-        const ballGeometry = new THREE.SphereGeometry(0.2, 32, 32); 
-        const ballMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
-        const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
-        ballMesh.castShadow = true;
-        scene.add(ballMesh);
-
-        // --- UPGRADED: Players (Lambert + castShadow) ---
-        const playerMeshes = [];
-        const playerGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 16);
-        const matBlue = new THREE.MeshLambertMaterial({ color: 0x0000ff });
-        const matRed = new THREE.MeshLambertMaterial({ color: 0xff0000 });
-        const matHuman = new THREE.MeshLambertMaterial({ color: 0xffd700 }); 
-
-        for (let i = 0; i < 10; i++) {
-            let mat = i < 5 ? matBlue : matRed;
-            if (i === 0) mat = matHuman; 
-            const mesh = new THREE.Mesh(playerGeometry, mat);
-            mesh.castShadow = true; // NEW: Cast shadows onto grass
-            mesh.receiveShadow = true; // NEW: Receive shadows from the ball flying over them
-            scene.add(mesh);
-            playerMeshes.push(mesh);
+        function buildStadiumPerimeter() {
+            const boardMat = new THREE.MeshLambertMaterial({ color: 0x0f172a });
+            const glowStripMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+            const northBoard = new THREE.Mesh(new THREE.BoxGeometry(108, 1.1, 0.4), boardMat);
+            northBoard.position.set(0, 0.55, -36.5);
+            const northStrip = new THREE.Mesh(new THREE.BoxGeometry(108, 0.15, 0.45), glowStripMat);
+            northStrip.position.set(0, 1.0, -36.5);
+            scene.add(northBoard, northStrip);
         }
 
-        // Possession Ring (Stays Basic so it glows brightly)
-        const ringGeo = new THREE.RingGeometry(0.5, 0.7, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
-        const possessionRing = new THREE.Mesh(ringGeo, ringMat);
-        possessionRing.rotation.x = -Math.PI / 2; possessionRing.position.y = 0.05; possessionRing.visible = false;
-        scene.add(possessionRing);
+        function rebuild3DPlayerMeshes() {
+            if (!scene) return;
+            playerMeshGroups.forEach(g => scene.remove(g));
+            playerMeshGroups = [];
+            const tagLayer = document.getElementById('floating-tags-layer');
+            if (tagLayer) tagLayer.innerHTML = '';
 
-        // Camera High Tactical View
-        camera.position.set(0, 40, 45);
-        camera.lookAt(0, 0, 0);
+            SIM_STATE.players.forEach((p, idx) => {
+                const group = new THREE.Group();
+                const isGK = p.playstyle === 'Goalkeeper';
+                const kitColor = isGK
+                    ? (p.team === 0 ? 0x10b981 : 0xf59e0b)
+                    : (p.team === 0 ? 0x2563eb : 0xe11d48);
 
-        const ws = new WebSocket("ws://localhost:8000/ws");
-        const telemetry = document.getElementById("telemetry");
+                const kitMat = new THREE.MeshLambertMaterial({ color: kitColor });
+                const shortsMat = new THREE.MeshLambertMaterial({ color: p.team === 0 ? 0x0f172a : 0xffffff });
+                const skinMat = new THREE.MeshLambertMaterial({ color: 0xe2b897 });
 
-        // --- UPGRADED: EAFC Input Controller ---
-        const keys = { w: false, a: false, s: false, d: false, shift: false, " ": false, e: false, f: false };
-        window.addEventListener("keydown", (ev) => {
-            const k = ev.key.toLowerCase();
-            if(keys.hasOwnProperty(k)) keys[k] = true;
-        });
-        window.addEventListener("keyup", (ev) => {
-            const k = ev.key.toLowerCase();
-            if(keys.hasOwnProperty(k)) keys[k] = false;
-        });
+                // Torso
+                const torso = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.68, 0.28), kitMat);
+                torso.position.y = 1.05;
+                torso.castShadow = true;
+                group.add(torso);
 
-        // Broadcast inputs to Python every 16ms
-        setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-                let dx = 0; let dz = 0;
-                if (keys.w) dz = -1;
-                if (keys.s) dz = 1;
-                if (keys.a) dx = -1;
-                if (keys.d) dx = 1;
-                
-                ws.send(JSON.stringify({ 
-                    dx: dx, dz: dz,
-                    sprint: keys.shift, 
-                    shoot: keys[" "],    
-                    pass: keys.e,
-                    lofted_pass: keys.f   // NEW: Send the lofted pass command
-                }));
-            }
-        }, 16);
+                // Head
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 14, 14), skinMat);
+                head.position.y = 1.60;
+                head.castShadow = true;
+                group.add(head);
 
-        let lastTime = performance.now();
+                // Left & Right Legs (Articulated via MotionMatcher phase)
+                const legGeo = new THREE.CylinderGeometry(0.09, 0.08, 0.65, 8);
+                const leftLeg = new THREE.Mesh(legGeo, shortsMat);
+                leftLeg.position.set(0, 0.36, -0.13);
+                const rightLeg = new THREE.Mesh(legGeo, shortsMat);
+                rightLeg.position.set(0, 0.36, 0.13);
+                group.add(leftLeg, rightLeg);
 
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            
-            // Calculate Ping / Tick Rate
+                // Left & Right Arms
+                const armGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.52, 8);
+                const leftArm = new THREE.Mesh(armGeo, kitMat);
+                leftArm.position.set(0, 1.02, -0.32);
+                const rightArm = new THREE.Mesh(armGeo, kitMat);
+                rightArm.position.set(0, 1.02, 0.32);
+                group.add(leftArm, rightArm);
+
+                group.userData = { leftLeg, rightLeg, leftArm, rightArm, torso };
+                group.position.set(p.x, 0, p.z);
+                scene.add(group);
+                playerMeshGroups.push(group);
+
+                // Floating HTML Overhead Tag
+                if (tagLayer) {
+                    const tag = document.createElement('div');
+                    tag.id = `ptag-${idx}`;
+                    tag.className = 'player-tag-3d px-1.5 py-0.5 rounded text-[10px] font-bold shadow border flex items-center gap-1';
+                    tagLayer.appendChild(tag);
+                }
+            });
+        }
+
+        function onViewportResize() {
+            const container = document.getElementById('three-canvas-Mount');
+            if (!container || !renderer || !camera) return;
+            const w = container.clientWidth || window.innerWidth;
+            const h = container.clientHeight || 560;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+
+        // -------------------------------------------------------------------
+        // 7. 144Hz RENDER & TELEMETRY PROJECTION LOOP
+        // -------------------------------------------------------------------
+        let lastFrameTime = performance.now();
+
+        function animateLoop() {
+            requestAnimationFrame(animateLoop);
             const now = performance.now();
-            const msPerTick = (now - lastTime).toFixed(1);
-            lastTime = now;
+            const dtMs = now - lastFrameTime;
+            lastFrameTime = now;
 
-            // --- NEW: Calculate EAFC Match Time (60 ticks = 1 in-game minute) ---
-            const gameMinutes = Math.floor(data.tick / 60);
-            const displayMin = String(gameMinutes).padStart(2, '0');
-            document.getElementById("match-clock").innerText = displayMin + ":00";
+            if (!APP_STATE.wsConnected) {
+                stepSimulation60Hz();
+            }
 
-            // Update Scoreboard UI
-            document.getElementById("score-b").innerText = data.score.blue;
-            document.getElementById("score-r").innerText = data.score.red;
-            
-            ballMesh.position.set(data.ball.x, data.ball.y, data.ball.z);
+            if (APP_STATE.activeTab === 'match' && renderer && scene && camera) {
+                update3DSceneVisuals(dtMs);
+                renderer.render(scene, camera);
+                draw2DRadarMinimap();
+            }
+        }
+
+        function update3DSceneVisuals(dtMs) {
+            // 1. Update Ball Mesh
+            ballMesh.position.set(SIM_STATE.ball.x, SIM_STATE.ball.y, SIM_STATE.ball.z);
+            ballMesh.material.color.setHex(SIM_STATE.ball.isStunning ? 0xc084fc : 0xffffff);
+
+            // 2. Camera Tracking Modes
+            if (APP_STATE.cameraPreset === 'broadcast') {
+                const targetCamX = SIM_STATE.ball.x * 0.65;
+                camera.position.x += (targetCamX - camera.position.x) * 0.08;
+                camera.position.y += (36 - camera.position.y) * 0.08;
+                camera.position.z += (46 - camera.position.z) * 0.08;
+                camera.lookAt(SIM_STATE.ball.x * 0.45, 0, SIM_STATE.ball.z * 0.25);
+            } else if (APP_STATE.cameraPreset === 'tactical') {
+                camera.position.set(0, 76, 4);
+                camera.lookAt(0, 0, 0);
+            } else if (APP_STATE.cameraPreset === 'pro') {
+                const hp = SIM_STATE.players.find(p => p.isHuman) || SIM_STATE.players[0];
+                camera.position.x += ((hp.x - 16) - camera.position.x) * 0.1;
+                camera.position.y += (14 - camera.position.y) * 0.1;
+                camera.position.z += (hp.z - camera.position.z) * 0.1;
+                camera.lookAt(SIM_STATE.ball.x, 1.0, SIM_STATE.ball.z);
+            } else if (APP_STATE.cameraPreset === 'ball') {
+                camera.position.set(SIM_STATE.ball.x - 10, 14, SIM_STATE.ball.z + 18);
+                camera.lookAt(SIM_STATE.ball.x, 0.5, SIM_STATE.ball.z);
+            }
+
+            // 3. Magnus Trajectory Prediction Curve
+            trajectoryLine.visible = APP_STATE.showMagnusArc;
+            if (APP_STATE.showMagnusArc) {
+                const simBall = { ...SIM_STATE.ball };
+                const positions = trajectoryLine.geometry.attributes.position.array;
+                for (let i = 0; i < 45; i++) {
+                    stepBallPhysics240Hz(simBall);
+                    positions[i * 3] = simBall.x;
+                    positions[i * 3 + 1] = Math.max(0.08, simBall.y);
+                    positions[i * 3 + 2] = simBall.z;
+                }
+                trajectoryLine.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // 4. Update Articulated Players + 3D-to-2D Projected HUD Tags
+            const container = document.getElementById('three-canvas-Mount');
+            const viewW = container ? container.clientWidth : window.innerWidth;
+            const viewH = container ? container.clientHeight : 560;
             possessionRing.visible = false;
 
-            for (let i = 0; i < 10; i++) {
-                if (data.players[i]) {
-                    // 1. Move the 3D Cylinder
-                    playerMeshes[i].position.set(data.players[i].x, data.players[i].y, data.players[i].z);
-                    
-                    // 2. Move the Possession Ring
-                    if (data.players[i].has_possession) {
-                        possessionRing.position.x = data.players[i].x;
-                        possessionRing.position.z = data.players[i].z;
-                        possessionRing.visible = true;
-                    }
+            while (aiVectorGroup.children.length > 0) {
+                aiVectorGroup.remove(aiVectorGroup.children[0]);
+            }
 
-                    // --- NEW: 3D to 2D Spatial Projection for Floating Tags ---
-                    let tag = document.getElementById("tag-" + i);
-                    if (!tag) {
-                        // Create the HTML tag if it doesn't exist yet
-                        tag = document.createElement("div");
-                        tag.id = "tag-" + i;
-                        let teamClass = data.players[i].team === 0 ? "tag-blue" : "tag-red";
-                        if (i === 0) teamClass = "tag-gold"; // Human Player
-                        tag.className = `player-tag ${teamClass}`;
-                        
-                        // Add an asterisk if they are the Goalkeeper
-                        tag.innerText = data.players[i].playstyle === "Goalkeeper" ? "(GK)" : data.players[i].playstyle;
-                        document.body.appendChild(tag);
-                    }
+            for (let i = 0; i < SIM_STATE.players.length; i++) {
+                const p = SIM_STATE.players[i];
+                const meshGroup = playerMeshGroups[i];
+                if (!meshGroup) continue;
 
-                    // Project the 3D position onto the 2D screen
-                    const pos = playerMeshes[i].position.clone();
-                    pos.y += 1.5; // Hover 1.5 meters above the cylinder's center
-                    pos.project(camera);
-                    
-                    // Convert normalized device coordinates to screen pixels
-                    const screenX = (pos.x * 0.5 + 0.5) * window.innerWidth;
-                    const screenY = (pos.y * -0.5 + 0.5) * window.innerHeight;
-                    
-                    tag.style.left = `${screenX}px`;
-                    tag.style.top = `${screenY}px`;
+                meshGroup.position.set(p.x, 0, p.z);
+                meshGroup.rotation.y = -p.angle;
+
+                // Procedural Motion-Matching Limb Swing
+                const swing = p.pose === 0 ? 0 : Math.sin(p.phase) * (p.pose === 2 ? 0.65 : 0.42);
+                meshGroup.userData.leftLeg.rotation.z = swing;
+                meshGroup.userData.rightLeg.rotation.z = -swing;
+                meshGroup.userData.leftArm.rotation.z = -swing * 0.7;
+                meshGroup.userData.rightArm.rotation.z = swing * 0.7;
+
+                if (p.hasPossession) {
+                    possessionRing.position.set(p.x, 0.05, p.z);
+                    possessionRing.visible = true;
+                }
+                if (p.isHuman) {
+                    humanArrowMesh.position.set(p.x, 2.35 + Math.sin(SIM_STATE.tick * 0.15) * 0.12, p.z);
+                }
+
+                // Draw AI Tactical Passing Lane from human player to open teammates
+                if (APP_STATE.showAiVectors && p.isHuman) {
+                    SIM_STATE.players.forEach(mate => {
+                        if (mate.team === 0 && mate.id !== p.id && mate.playstyle !== 'Goalkeeper') {
+                            const lGeo = new THREE.BufferGeometry().setFromPoints([
+                                new THREE.Vector3(p.x, 0.12, p.z),
+                                new THREE.Vector3(mate.x, 0.12, mate.z)
+                            ]);
+                            const lMat = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.45 });
+                            aiVectorGroup.add(new THREE.Line(lGeo, lMat));
+                        }
+                    });
+                }
+
+                // Project 3D Player Position to 2D Screen Tag
+                const tag = document.getElementById(`ptag-${i}`);
+                if (tag) {
+                    const proj = new THREE.Vector3(p.x, 2.05, p.z).project(camera);
+                    if (proj.z > 1.0) {
+                        tag.style.opacity = '0';
+                    } else {
+                        const sx = (proj.x * 0.5 + 0.5) * viewW;
+                        const sy = (-proj.y * 0.5 + 0.5) * viewH;
+                        tag.style.opacity = (APP_STATE.matchFormat === '11v11' && !p.isHuman && !p.hasPossession && i > 4) ? '0.65' : '1';
+                        tag.style.left = `${sx}px`;
+                        tag.style.top = `${sy}px`;
+                        if (p.isHuman) {
+                            tag.className = 'player-tag-3d px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-extrabold text-[10px] border border-white shadow';
+                            tag.textContent = `★ ${p.number} ${p.name.split('-')[0]} (${p.playstylePlus})`;
+                        } else {
+                            const c = p.team === 0 ? 'bg-blue-950/85 text-blue-200 border-blue-500/50' : 'bg-rose-950/85 text-rose-200 border-rose-500/50';
+                            tag.className = `player-tag-3d px-1.5 py-0.5 rounded text-[9px] font-bold border ${c}`;
+                            tag.textContent = `${p.number} ${p.name.split('-')[0]}`;
+                        }
+                    }
                 }
             }
-            
-            // Update Engineering HUD
-            telemetry.innerHTML = `
-                <div class="telemetry-title">SERVER TELEMETRY</div>
-                Tick Rate : ${msPerTick} ms<br>
-                Tick #    : ${data.tick}<br>
-                State Hash: ${data.hash}<br>
-                WASD: Move | SHIFT: Sprint<br>
-                SPACE: Shoot | E: Pass | F: Lob
-            `;
-        };
 
-        function animate() {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
+            // 5. Update Scoreboard & Telemetry Readouts
+            document.getElementById('hud-score-blue').textContent = SIM_STATE.scoreBlue;
+            document.getElementById('hud-score-red').textContent = SIM_STATE.scoreRed;
+            const totalSec = Math.floor(SIM_STATE.tick / 10); // Accelerated match clock
+            const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+            const ss = String(totalSec % 60).padStart(2, '0');
+            document.getElementById('hud-match-clock').textContent = `${mm}:${ss}`;
+            document.getElementById('hud-xg-summary').textContent = `xG ${SIM_STATE.stats.xgBlue.toFixed(2)} - ${SIM_STATE.stats.xgRed.toFixed(2)}`;
+
+            document.getElementById('tel-ms').textContent = `${dtMs.toFixed(1)} ms`;
+            document.getElementById('tel-tick').textContent = SIM_STATE.tick;
+            document.getElementById('tel-hash').textContent = SIM_STATE.checksum;
+            const bSpeedKmh = (Math.hypot(SIM_STATE.ball.vx, SIM_STATE.ball.vy, SIM_STATE.ball.vz) * 3.6).toFixed(1);
+            document.getElementById('tel-ball-speed').textContent = `${bSpeedKmh} km/h`;
+            document.getElementById('tel-ball-spin').textContent = `${SIM_STATE.ball.spinY.toFixed(1)} rad/s`;
+
+            const totalPoss = Math.max(1, SIM_STATE.stats.possBlue + SIM_STATE.stats.possRed);
+            const pBluePct = Math.round((SIM_STATE.stats.possBlue / totalPoss) * 100);
+            document.getElementById('tel-possession').textContent = `${pBluePct}% - ${100 - pBluePct}%`;
+
+            const hp = SIM_STATE.players.find(p => p.isHuman) || SIM_STATE.players[0];
+            if (hp) {
+                document.getElementById('hud-stamina-bar').style.width = `${hp.stamina}%`;
+                document.getElementById('hud-power-bar').style.width = `${Math.round(shotChargeBar * 100)}%`;
+            }
         }
-        animate();
+
+        function updateActivePlayerHudStrip() {
+            const hp = SIM_STATE.players.find(p => p.isHuman) || SIM_STATE.players[0];
+            if (!hp) return;
+            document.getElementById('hud-active-player-name').textContent = `${hp.number} ${hp.name}`;
+            document.getElementById('hud-active-playstyle').textContent = hp.playstylePlus;
+        }
+
+        function draw2DRadarMinimap() {
+            const canvas = document.getElementById('radar-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Pitch border & halfway line
+            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(6, 6, w - 12, h - 12);
+            ctx.beginPath();
+            ctx.moveTo(w / 2, 6);
+            ctx.lineTo(w / 2, h - 6);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(w / 2, h / 2, 14, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Players
+            SIM_STATE.players.forEach(p => {
+                const rx = ((p.x + 52.5) / 105) * (w - 12) + 6;
+                const rz = ((p.z + 34) / 68) * (h - 12) + 6;
+                ctx.beginPath();
+                ctx.arc(rx, rz, p.isHuman ? 4.5 : 3.2, 0, Math.PI * 2);
+                ctx.fillStyle = p.isHuman ? '#facc15' : (p.team === 0 ? '#3b82f6' : '#f43f5e');
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+            });
+
+            // Ball
+            const bx = ((SIM_STATE.ball.x + 52.5) / 105) * (w - 12) + 6;
+            const bz = ((SIM_STATE.ball.z + 34) / 68) * (h - 12) + 6;
+            ctx.beginPath();
+            ctx.arc(bx, bz, 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+        }
+
+        // -------------------------------------------------------------------
+        // 8. MATCH TOOLBAR & REPLAY RING-BUFFER CONTROLS
+        // -------------------------------------------------------------------
+        function setMatchFormat(fmt) {
+            APP_STATE.matchFormat = fmt;
+            document.getElementById('btn-mode-5v5').className = fmt === '5v5'
+                ? 'px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                : 'px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold';
+            document.getElementById('btn-mode-11v11').className = fmt === '11v11'
+                ? 'px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                : 'px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold';
+            spawnMatchPlayers();
+            rebuild3DPlayerMeshes();
+            resetBallToCenter();
+            setCommentary(`Switched to ${fmt.toUpperCase()} match layout!`);
+        }
+
+        function setCameraPreset(preset) {
+            APP_STATE.cameraPreset = preset;
+        }
+
+        function setLiveMentality(ment) {
+            APP_STATE.mentality = ment;
+            ['ULTRA_DEFENSIVE', 'BALANCED', 'GEGENPRESS', 'ALL_OUT_ATTACK'].forEach(k => {
+                const btn = document.getElementById(`ment-btn-${k}`);
+                if (btn) {
+                    btn.className = k === ment
+                        ? 'px-2 py-0.5 rounded text-[11px] font-bold bg-blue-600 text-white'
+                        : 'px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 hover:text-white';
+                }
+            });
+            setCommentary(`Tactical D-Pad Mentality switched to ${ment.replace('_', ' ')}!`);
+        }
+
+        function toggleTrajectoryArc() {
+            APP_STATE.showMagnusArc = !APP_STATE.showMagnusArc;
+            const btn = document.getElementById('btn-toggle-arc');
+            btn.textContent = `📈 Magnus Arc: ${APP_STATE.showMagnusArc ? 'ON' : 'OFF'}`;
+        }
+
+        function toggleTacticalVectors() {
+            APP_STATE.showAiVectors = !APP_STATE.showAiVectors;
+            const btn = document.getElementById('btn-toggle-voronoi');
+            btn.textContent = `🧭 AI Vectors: ${APP_STATE.showAiVectors ? 'ON' : 'OFF'}`;
+        }
+
+        function togglePauseMatch() {
+            APP_STATE.isPaused = !APP_STATE.isPaused;
+            document.getElementById('btn-pause-match').textContent = APP_STATE.isPaused ? '▶ Resume' : '⏸ Pause';
+        }
+
+        function toggleReplayDrawer() {
+            const drawer = document.getElementById('replay-drawer');
+            if (drawer.classList.contains('hidden')) {
+                APP_STATE.inReplayMode = true;
+                drawer.classList.remove('hidden');
+                document.getElementById('replay-slider').value = 100;
+            } else {
+                closeReplayDrawer();
+            }
+        }
+
+        function closeReplayDrawer() {
+            APP_STATE.inReplayMode = false;
+            document.getElementById('replay-drawer').classList.add('hidden');
+        }
+
+        function scrubReplayFrame(sliderVal) {
+            const validSnapshots = SIM_STATE.ringBuffer.filter(Boolean).sort((a, b) => a.tick - b.tick);
+            if (validSnapshots.length === 0) return;
+            const idx = Math.min(validSnapshots.length - 1, Math.floor((sliderVal / 100) * (validSnapshots.length - 1)));
+            const snap = validSnapshots[idx];
+            SIM_STATE.ball = { ...snap.ball };
+            SIM_STATE.players = snap.players.map(p => ({ ...p }));
+            SIM_STATE.checksum = snap.checksum;
+            document.getElementById('replay-frame-label').textContent = `Tick ${snap.tick} • Hash ${snap.checksum}`;
+        }
+
+        // -------------------------------------------------------------------
+        // 9. VIEW 2: FC IQ TACTICAL BOARD & SPATIAL DIAGRAM
+        // -------------------------------------------------------------------
+        function renderFcIqRolesList() {
+            const container = document.getElementById('fc-iq-roles-list');
+            if (!container) return;
+            const roleOptions = ['Poacher+', 'False 9+', 'Inside Forward++', 'Playmaker++', 'Box-to-Box+', 'Stopper+', 'Ball-Playing CB+', 'Sweeper Keeper+'];
+            container.innerHTML = BLUE_SQUAD.map((p, idx) => `
+                <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 text-xs">
+                    <div>
+                        <span class="font-bold text-amber-400 mr-1">#${p.number}</span>
+                        <span class="font-bold text-white">${p.name}</span>
+                        <span class="text-slate-400 ml-1">(${p.pos})</span>
+                    </div>
+                    <select onchange="updatePlayerFcRole(${idx}, this.value)" class="bg-slate-800 text-emerald-300 border border-slate-700 rounded-lg px-2 py-1 text-xs font-bold">
+                        ${roleOptions.map(r => `<option value="${r}" ${p.fcRole === r ? 'selected' : ''}>${r}</option>`).join('')}
+                    </select>
+                </div>
+            `).join('');
+        }
+
+        function updatePlayerFcRole(idx, newRole) {
+            BLUE_SQUAD[idx].fcRole = newRole;
+            if (SIM_STATE.players[idx]) SIM_STATE.players[idx].fcRole = newRole;
+            updateTacticalBoardPreview();
+        }
+
+        function updateTacticalBoardPreview() {
+            APP_STATE.formation = document.getElementById('tactics-formation-select').value;
+            APP_STATE.teamPlaystyle = document.getElementById('tactics-playstyle-select').value;
+            APP_STATE.defensiveLineHeight = +document.getElementById('slider-line-height').value;
+            APP_STATE.pressRadius = +document.getElementById('slider-press-radius').value;
+            APP_STATE.teamWidth = +document.getElementById('slider-team-width').value;
+
+            document.getElementById('lbl-line-height').textContent = `${APP_STATE.defensiveLineHeight} / 100 (${APP_STATE.defensiveLineHeight > 65 ? 'High Line' : 'Mid/Deep Block'})`;
+            document.getElementById('lbl-press-radius').textContent = `${APP_STATE.pressRadius.toFixed(1)} m`;
+            document.getElementById('lbl-team-width').textContent = `${APP_STATE.teamWidth} / 100`;
+
+            const canvas = document.getElementById('tactical-board-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Pitch Background
+            ctx.fillStyle = '#0c2e1e';
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(20, 20, w - 40, h - 40);
+            ctx.beginPath();
+            ctx.moveTo(w / 2, 20);
+            ctx.lineTo(w / 2, h - 20);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(w / 2, h / 2, 48, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Defensive Line Indicator
+            const defLineX = 40 + (APP_STATE.defensiveLineHeight / 100) * (w * 0.45);
+            ctx.strokeStyle = '#f43f5e';
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath();
+            ctx.moveTo(defLineX, 20);
+            ctx.lineTo(defLineX, h - 20);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#fda4af';
+            ctx.font = 'bold 11px JetBrains Mono';
+            ctx.fillText(`DEF LINE (${APP_STATE.defensiveLineHeight}m)`, defLineX + 6, 36);
+
+            // Draw Formation Nodes & Attacking Vectors
+            const coords = FORMATIONS_COORDS[APP_STATE.formation][0].slice(0, 5);
+            coords.forEach((pt, idx) => {
+                const p = BLUE_SQUAD[idx];
+                const px = ((pt[0] + 52.5) / 105) * (w - 40) + 20 + (idx !== 4 ? (APP_STATE.defensiveLineHeight - 55) * 1.1 : 0);
+                const pz = ((pt[1] * (APP_STATE.teamWidth / 65) + 34) / 68) * (h - 40) + 20;
+
+                // Pressing Radius Halo
+                ctx.beginPath();
+                ctx.arc(px, pz, APP_STATE.pressRadius * 2.1, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.10)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Attacking Run Arrow
+                if (idx !== 4) {
+                    const runLen = APP_STATE.teamPlaystyle === 'Quick Counter' ? 58 : 38;
+                    ctx.strokeStyle = '#facc15';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.moveTo(px, pz);
+                    ctx.lineTo(px + runLen, pz);
+                    ctx.stroke();
+                }
+
+                // Player Node
+                ctx.beginPath();
+                ctx.arc(px, pz, 14, 0, Math.PI * 2);
+                ctx.fillStyle = idx === 0 ? '#facc15' : '#2563eb';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = idx === 0 ? '#0f172a' : '#ffffff';
+                ctx.font = 'bold 11px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(String(p.number), px, pz + 4);
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = 'bold 11px Inter';
+                ctx.fillText(`${p.name.split('-')[0]} (${p.fcRole})`, px, pz + 28);
+            });
+            ctx.textAlign = 'left';
+        }
+
+        function applyTacticsAndJumpToMatch() {
+            spawnMatchPlayers();
+            rebuild3DPlayerMeshes();
+            switchMainTab('match');
+            setCommentary(`Applied ${APP_STATE.formation} (${APP_STATE.teamPlaystyle}) to Live 3D Match Engine!`);
+        }
+
+        // -------------------------------------------------------------------
+        // 10. VIEW 3: ULTIMATE SQUAD & PLAYSTYLES+ PROGRESSION LAB
+        // -------------------------------------------------------------------
+        function renderUltimateSquadView() {
+            const grid = document.getElementById('squad-cards-grid');
+            if (!grid) return;
+
+            grid.innerHTML = BLUE_SQUAD.map((p, idx) => {
+                const isSelected = (idx === APP_STATE.selectedSquadIndex);
+                return `
+                    <div onclick="selectSquadPlayer(${idx})" class="cursor-pointer rounded-2xl p-4 transition-all ${isSelected ? 'gold-card scale-[1.02]' : 'cyan-card opacity-90 hover:opacity-100'}">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <div class="text-3xl font-black text-white leading-none">${p.ovr}</div>
+                                <div class="text-xs font-extrabold text-amber-300 mt-0.5">${p.pos}</div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px] uppercase shadow">
+                                ◆ ${p.playstylePlus}
+                            </span>
+                        </div>
+                        <div class="my-3 pt-2 border-t border-white/15">
+                            <div class="font-extrabold text-sm text-white truncate">#${p.number} ${p.name}</div>
+                            <div class="text-[11px] text-slate-300">${p.fcRole}</div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5 text-[11px] font-mono-code bg-slate-950/60 p-2 rounded-xl">
+                            <div><span class="text-slate-400">PAC</span> <strong class="text-white">${p.pac}</strong></div>
+                            <div><span class="text-slate-400">SHO</span> <strong class="text-white">${p.sho}</strong></div>
+                            <div><span class="text-slate-400">PAS</span> <strong class="text-white">${p.pas}</strong></div>
+                            <div><span class="text-slate-400">DRI</span> <strong class="text-white">${p.dri}</strong></div>
+                            <div><span class="text-slate-400">DEF</span> <strong class="text-white">${p.def}</strong></div>
+                            <div><span class="text-slate-400">PHY</span> <strong class="text-white">${p.phy}</strong></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const sel = BLUE_SQUAD[APP_STATE.selectedSquadIndex];
+            document.getElementById('prog-selected-name').textContent = `${sel.name} (OVR ${sel.ovr})`;
+            document.getElementById('prog-selected-role').innerHTML = `Role: <span class="text-emerald-400 font-bold">${sel.fcRole}</span> • PlayStyle+: <span class="text-amber-300 font-bold">${sel.playstylePlus}</span>`;
+            document.getElementById('prog-points-readout').textContent = `${APP_STATE.progressionPoints} PTS`;
+            document.getElementById('prog-physics-speed').textContent = `${sel.pace.toFixed(2)} m/s`;
+
+            const attrs = [
+                { key: 'pac', label: 'Dexterity & Top Speed', desc: '+1 PAC & +0.12 m/s Physics Pace', cost: 2 },
+                { key: 'sho', label: 'Shooting & Strike Impulse', desc: '+1 SHO & +0.6 m/s Shot Power', cost: 2 },
+                { key: 'dri', label: 'Magnus Finesse & Curl', desc: '+1 DRI & +1.8 rad/s Spin Curve', cost: 2 },
+                { key: 'pas', label: 'Incisive Passing Vision', desc: '+2 PAS & Through-Ball Precision', cost: 2 },
+                { key: 'def', label: 'Tackle Reach & Interception', desc: '+2 DEF & Tackle Hitbox Radius', cost: 2 },
+                { key: 'phy', label: 'Lower Body Strength & Stamina', desc: '+2 PHY & Collision Mass', cost: 2 }
+            ];
+
+            document.getElementById('prog-upgrade-buttons').innerHTML = attrs.map(a => `
+                <button onclick="allocatePlayerProgression('${a.key}', ${a.cost})" class="text-left p-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 transition-all flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-extrabold text-white">${a.label}</span>
+                            <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono-code text-[10px] font-bold">-${a.cost} PTS</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400 mt-1">${a.desc}</div>
+                    </div>
+                    <div class="mt-2 text-xs font-mono-code text-emerald-400 font-bold">Current ${a.key.toUpperCase()}: ${sel[a.key]} → ${Math.min(99, sel[a.key] + (a.key === 'pas' || a.key === 'def' || a.key === 'phy' ? 2 : 1))}</div>
+                </button>
+            `).join('');
+        }
+
+        function selectSquadPlayer(idx) {
+            APP_STATE.selectedSquadIndex = idx;
+            renderUltimateSquadView();
+        }
+
+        function allocatePlayerProgression(attrKey, cost) {
+            if (APP_STATE.progressionPoints < cost) return;
+            APP_STATE.progressionPoints -= cost;
+            const p = BLUE_SQUAD[APP_STATE.selectedSquadIndex];
+            if (attrKey === 'pac') { p.pac = Math.min(99, p.pac + 1); p.pace = +(p.pace + 0.12).toFixed(2); }
+            if (attrKey === 'sho') { p.sho = Math.min(99, p.sho + 1); p.shotPower = +(p.shotPower + 0.6).toFixed(1); }
+            if (attrKey === 'dri') { p.dri = Math.min(99, p.dri + 1); p.curve = +(p.curve + 1.8).toFixed(1); }
+            if (attrKey === 'pas') { p.pas = Math.min(99, p.pas + 2); }
+            if (attrKey === 'def') { p.def = Math.min(99, p.def + 2); }
+            if (attrKey === 'phy') { p.phy = Math.min(99, p.phy + 2); }
+            p.ovr = Math.min(99, Math.round((p.pac + p.sho + p.pas + p.dri + Math.max(p.def, p.phy)) / 5));
+
+            // Sync live 3D simulation player
+            if (SIM_STATE.players[APP_STATE.selectedSquadIndex]) {
+                SIM_STATE.players[APP_STATE.selectedSquadIndex].pace = p.pace;
+                SIM_STATE.players[APP_STATE.selectedSquadIndex].shotPower = p.shotPower;
+                SIM_STATE.players[APP_STATE.selectedSquadIndex].curve = p.curve;
+            }
+            playSfx('kick');
+            updateHeaderCurrencies();
+            renderUltimateSquadView();
+        }
+
+        function grantBonusProgressionPoints() {
+            APP_STATE.progressionPoints += 10;
+            updateHeaderCurrencies();
+            renderUltimateSquadView();
+        }
+
+        function openScoutPackModal() {
+            if (APP_STATE.clubBudgetMillions < 15.0) return;
+            APP_STATE.clubBudgetMillions = +(APP_STATE.clubBudgetMillions - 15.0).toFixed(1);
+            const p = BLUE_SQUAD[APP_STATE.selectedSquadIndex];
+            p.ovr = Math.min(99, p.ovr + 2);
+            p.pac = Math.min(99, p.pac + 2);
+            p.sho = Math.min(99, p.sho + 2);
+            p.pace = +(p.pace + 0.18).toFixed(2);
+            p.shotPower = +(p.shotPower + 1.1).toFixed(1);
+            if (SIM_STATE.players[APP_STATE.selectedSquadIndex]) {
+                SIM_STATE.players[APP_STATE.selectedSquadIndex].pace = p.pace;
+                SIM_STATE.players[APP_STATE.selectedSquadIndex].shotPower = p.shotPower;
+            }
+            const banner = document.getElementById('pack-reveal-banner');
+            document.getElementById('pack-reveal-text').textContent = `${p.name} received an Elite PlayStyle+ Evolution (+2 OVR → ${p.ovr}, Top Speed ${p.pace} m/s)!`;
+            banner.classList.remove('hidden');
+            playSfx('goal');
+            updateHeaderCurrencies();
+            renderUltimateSquadView();
+        }
+
+        // -------------------------------------------------------------------
+        // 11. VIEW 4: MANAGER CAREER & TRANSFER MARKET
+        // -------------------------------------------------------------------
+        function renderCareerView() {
+            const sorted = [...CAREER_CLUBS].sort((a, b) => (b.pts - a.pts) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
+            const tbody = document.getElementById('career-table-body');
+            if (tbody) {
+                tbody.innerHTML = sorted.map((c, idx) => `
+                    <tr class="${c.isUser ? 'bg-emerald-500/15 text-emerald-300 font-bold' : 'text-slate-200'}">
+                        <td class="py-2 px-2">${idx + 1}</td>
+                        <td class="py-2 px-2 font-sans font-bold">${c.name}</td>
+                        <td class="py-2 px-2 text-right">${c.ovr}</td>
+                        <td class="py-2 px-2 text-right">${c.p}</td>
+                        <td class="py-2 px-2 text-right">${c.w}</td>
+                        <td class="py-2 px-2 text-right">${c.d}</td>
+                        <td class="py-2 px-2 text-right">${c.l}</td>
+                        <td class="py-2 px-2 text-right">${c.gf}:${c.ga}</td>
+                        <td class="py-2 px-2 text-right">${c.gf - c.ga >= 0 ? '+' + (c.gf - c.ga) : (c.gf - c.ga)}</td>
+                        <td class="py-2 px-2 text-right font-extrabold text-white">${c.pts}</td>
+                    </tr>
+                `).join('');
+            }
+            document.getElementById('career-matchday-badge').textContent = `Matchday ${APP_STATE.matchdayNumber} / 14`;
+            document.getElementById('career-budget-pill').textContent = `Transfer Budget: €${APP_STATE.clubBudgetMillions.toFixed(1)}M`;
+
+            const tList = document.getElementById('transfer-market-list');
+            if (tList) {
+                tList.innerHTML = TRANSFER_TARGETS.map((t, idx) => `
+                    <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-2 text-xs">
+                        <div>
+                            <div class="font-extrabold text-white">${t.name} <span class="text-amber-400">OVR ${t.ovr}</span> (${t.pos})</div>
+                            <div class="text-[11px] text-slate-400">${t.fcRole} • ◆ ${t.playstylePlus} • Fee: <strong class="text-emerald-400">€${t.fee.toFixed(1)}M</strong></div>
+                        </div>
+                        ${t.signed
+                            ? `<span class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold">Signed ✓</span>`
+                            : `<button onclick="signTransferTarget(${idx})" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold">Sign (€${t.fee}M)</button>`
+                        }
+                    </div>
+                `).join('');
+            }
+        }
+
+        function simulateCareerMatchday() {
+            const shuffled = [...CAREER_CLUBS];
+            // Pair clubs (0v1, 2v3, 4v5, 6v7 rotated by matchday)
+            const feedHtml = [];
+            for (let i = 0; i < 4; i++) {
+                const home = shuffled[(i * 2 + APP_STATE.matchdayNumber) % 8];
+                const away = shuffled[(i * 2 + 1 + APP_STATE.matchdayNumber) % 8];
+                if (home.code === away.code) continue;
+                const diff = (home.ovr - away.ovr) + 1.5;
+                const xgH = Math.max(0.4, +(1.35 + diff * 0.08 + (Math.random() - 0.3) * 0.8).toFixed(2));
+                const xgA = Math.max(0.3, +(1.10 - diff * 0.06 + (Math.random() - 0.3) * 0.8).toFixed(2));
+                const gH = Math.max(0, Math.round(xgH + (Math.random() - 0.45) * 1.3));
+                const gA = Math.max(0, Math.round(xgA + (Math.random() - 0.45) * 1.3));
+
+                home.p++; away.p++;
+                home.gf += gH; home.ga += gA;
+                away.gf += gA; away.ga += gH;
+                if (gH > gA) { home.w++; home.pts += 3; away.l++; }
+                else if (gH < gA) { away.w++; away.pts += 3; home.l++; }
+                else { home.d++; away.d++; home.pts += 1; away.pts += 1; }
+
+                feedHtml.push(`
+                    <div class="bg-slate-900 px-3 py-2 rounded-lg border border-slate-800 flex items-center justify-between">
+                        <span class="font-bold text-white">${home.code} ${gH} - ${gA} ${away.code}</span>
+                        <span class="font-mono-code text-[11px] text-cyan-400">xG: ${xgH} - ${xgA}</span>
+                    </div>
+                `);
+            }
+            APP_STATE.matchdayNumber = (APP_STATE.matchdayNumber % 14) + 1;
+            APP_STATE.clubBudgetMillions = +(APP_STATE.clubBudgetMillions + 4.5).toFixed(1);
+            APP_STATE.progressionPoints += 4;
+            document.getElementById('career-results-feed').innerHTML = feedHtml.join('');
+            playSfx('whistle');
+            updateHeaderCurrencies();
+            renderCareerView();
+        }
+
+        function playNextCareerFixtureIn3D() {
+            const opp = CAREER_CLUBS[(APP_STATE.matchdayNumber % 7) + 1];
+            APP_STATE.awayCode = opp.code;
+            document.getElementById('hud-away-code').textContent = opp.code;
+            resetMatchScoreAndKickoff();
+            switchMainTab('match');
+            setCommentary(`Career Fixture Kickoff: VectorPitch Blue FC vs ${opp.name}!`);
+        }
+
+        function signTransferTarget(idx) {
+            const t = TRANSFER_TARGETS[idx];
+            if (t.signed || APP_STATE.clubBudgetMillions < t.fee) return;
+            APP_STATE.clubBudgetMillions = +(APP_STATE.clubBudgetMillions - t.fee).toFixed(1);
+            t.signed = true;
+            BLUE_SQUAD[t.replaceIdx] = {
+                id: t.replaceIdx,
+                name: t.name,
+                number: t.number,
+                pos: t.pos,
+                fcRole: t.fcRole,
+                playstyle: t.playstyle,
+                playstylePlus: t.playstylePlus,
+                ovr: t.ovr,
+                pac: t.pac,
+                sho: t.sho,
+                pas: t.pas,
+                dri: t.dri,
+                def: t.def,
+                phy: t.phy,
+                pace: t.pace,
+                shotPower: t.shotPower,
+                curve: t.curve
+            };
+            spawnMatchPlayers();
+            rebuild3DPlayerMeshes();
+            playSfx('goal');
+            updateHeaderCurrencies();
+            renderCareerView();
+        }
+
+        function updateHeaderCurrencies() {
+            document.getElementById('header-budget').textContent = `€${APP_STATE.clubBudgetMillions.toFixed(1)}M`;
+            document.getElementById('header-prog-pts').textContent = String(APP_STATE.progressionPoints);
+        }
+
+        // -------------------------------------------------------------------
+        // 12. VIEW 5: TELEMETRY, WIND-TUNNEL & ROLLBACK NETCODE CHARTS
+        // -------------------------------------------------------------------
+        let windTunnelChart = null;
+        let rollbackChart = null;
+        const rollbackLatencyHistory = [0.38, 0.41, 0.39, 0.44, 0.40, 0.42];
+
+        function initTelemetryCharts() {
+            const wtCtx = document.getElementById('wind-tunnel-chart');
+            if (wtCtx && !windTunnelChart) {
+                windTunnelChart = new Chart(wtCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            { label: 'Lateral Magnus Curl Z (m)', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.12)', fill: true, tension: 0.3 },
+                            { label: 'Vertical Height Y (m)', data: [], borderColor: '#facc15', backgroundColor: 'rgba(250,204,21,0.08)', fill: false, tension: 0.3 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11 } } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, title: { display: true, text: 'Forward Distance X (m)', color: '#94a3b8' } },
+                            y: { ticks: { color: '#94a3b8' }, title: { display: true, text: 'Displacement (m)', color: '#94a3b8' } }
+                        }
+                    }
+                });
+            }
+
+            const rbCtx = document.getElementById('rollback-telemetry-chart');
+            if (rbCtx && !rollbackChart) {
+                rollbackChart = new Chart(rbCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Rollback #1', 'Rollback #2', 'Rollback #3', 'Rollback #4', 'Rollback #5', 'Latest Rewind'],
+                        datasets: [{
+                            label: '15-Frame Resimulation Time (ms)',
+                            data: rollbackLatencyHistory,
+                            backgroundColor: '#10b981',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11 } } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' } },
+                            y: { beginAtZero: true, max: 1.5, ticks: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            }
+            updateWindTunnelChart();
+            renderMatchTelemetryStatsAndShotMap();
+        }
+
+        function updateWindTunnelChart() {
+            const speed = +document.getElementById('wt-slider-speed').value;
+            const spinY = +document.getElementById('wt-slider-spin').value;
+            const loftDeg = +document.getElementById('wt-slider-angle').value;
+
+            document.getElementById('wt-val-speed').textContent = `${speed} m/s`;
+            document.getElementById('wt-val-spin').textContent = `${spinY} rad/s`;
+            document.getElementById('wt-val-angle').textContent = `${loftDeg}°`;
+
+            const rad = (loftDeg * Math.PI) / 180;
+            const testBall = {
+                x: 0, y: 0.2, z: 0,
+                vx: speed * Math.cos(rad),
+                vy: speed * Math.sin(rad),
+                vz: 0,
+                spinX: 0, spinY: spinY, spinZ: 0
+            };
+
+            const xLabels = [];
+            const zCurlData = [];
+            const yHeightData = [];
+            let maxCurl = 0;
+
+            for (let t = 0; t < 75; t++) {
+                stepBallPhysics240Hz(testBall);
+                if (t % 3 === 0) {
+                    xLabels.push(testBall.x.toFixed(1) + 'm');
+                    zCurlData.push(+testBall.z.toFixed(2));
+                    yHeightData.push(+testBall.y.toFixed(2));
+                    if (Math.abs(testBall.z) > maxCurl) maxCurl = Math.abs(testBall.z);
+                }
+            }
+
+            document.getElementById('wind-tunnel-curl-readout').textContent = `Max Curl: ${maxCurl.toFixed(2)} m`;
+            if (windTunnelChart) {
+                windTunnelChart.data.labels = xLabels;
+                windTunnelChart.data.datasets[0].data = zCurlData;
+                windTunnelChart.data.datasets[1].data = yHeightData;
+                windTunnelChart.update();
+            }
+        }
+
+        function triggerRollbackFaultInjection() {
+            const t0 = performance.now();
+            const valid = SIM_STATE.ringBuffer.filter(Boolean);
+            const depth = Math.min(15, valid.length);
+            if (depth > 1) {
+                const snap = valid[valid.length - depth];
+                SIM_STATE.ball = { ...snap.ball };
+                SIM_STATE.players = snap.players.map(p => ({ ...p }));
+                // Apply synthetic corrected input and re-step forward
+                SIM_STATE.players[0].x += 0.35;
+                for (let k = 0; k < depth; k++) {
+                    stepBallPhysics240Hz(SIM_STATE.ball);
+                }
+                SIM_STATE.checksum = computeFnvHash(SIM_STATE);
+            }
+            const elapsed = Math.max(0.24, +(performance.now() - t0).toFixed(2));
+            APP_STATE.rollbackCount++;
+            APP_STATE.lastResimMs = elapsed;
+
+            document.getElementById('rb-stat-depth').textContent = `${depth} Ticks (${Math.round(depth * 16.6)}ms)`;
+            document.getElementById('rb-stat-latency').textContent = `${elapsed} ms`;
+            document.getElementById('rb-stat-count').textContent = `${APP_STATE.rollbackCount} Events`;
+
+            rollbackLatencyHistory.shift();
+            rollbackLatencyHistory.push(elapsed);
+            if (rollbackChart) {
+                rollbackChart.data.datasets[0].data = [...rollbackLatencyHistory];
+                rollbackChart.update();
+            }
+            playSfx('whistle');
+        }
+
+        function renderMatchTelemetryStatsAndShotMap() {
+            const container = document.getElementById('telemetry-stats-bars');
+            if (!container) return;
+            const totalPoss = Math.max(1, SIM_STATE.stats.possBlue + SIM_STATE.stats.possRed);
+            const pB = Math.round((SIM_STATE.stats.possBlue / totalPoss) * 100);
+            const rows = [
+                { label: 'Possession %', b: `${pB}%`, r: `${100 - pB}%`, pct: pB },
+                { label: 'Expected Goals (xG)', b: SIM_STATE.stats.xgBlue.toFixed(2), r: SIM_STATE.stats.xgRed.toFixed(2), pct: Math.round((SIM_STATE.stats.xgBlue / Math.max(0.01, SIM_STATE.stats.xgBlue + SIM_STATE.stats.xgRed)) * 100) || 50 },
+                { label: 'Total Shots', b: SIM_STATE.stats.shotsBlue, r: SIM_STATE.stats.shotsRed, pct: 50 },
+                { label: 'Completed Passes', b: SIM_STATE.stats.passesBlue, r: SIM_STATE.stats.passesRed, pct: 50 }
+            ];
+            container.innerHTML = rows.map(row => `
+                <div>
+                    <div class="flex justify-between font-mono-code mb-1">
+                        <span class="font-bold text-blue-400">${row.b}</span>
+                        <span class="text-slate-300 font-sans font-semibold">${row.label}</span>
+                        <span class="font-bold text-rose-400">${row.r}</span>
+                    </div>
+                    <div class="w-full h-2 bg-rose-950 rounded-full overflow-hidden">
+                        <div class="h-full bg-blue-500" style="width:${row.pct}%"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            const canvas = document.getElementById('xg-shotmap-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#092217';
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+            ctx.strokeRect(12, 12, w - 24, h - 24);
+            ctx.beginPath(); ctx.moveTo(w / 2, 12); ctx.lineTo(w / 2, h - 12); ctx.stroke();
+
+            APP_STATE.shotLog.forEach(s => {
+                const sx = ((s.x + 52.5) / 105) * (w - 24) + 12;
+                const sz = ((s.z + 34) / 68) * (h - 24) + 12;
+                const rad = Math.max(5, s.xg * 18);
+                ctx.beginPath();
+                ctx.arc(sx, sz, rad, 0, Math.PI * 2);
+                ctx.fillStyle = s.isGoal ? 'rgba(250, 204, 21, 0.88)' : (s.team === 0 ? 'rgba(56, 189, 248, 0.75)' : 'rgba(244, 63, 94, 0.75)');
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+            });
+        }
+
+        function toggleWebSocketConnection() {
+            const btn = document.getElementById('btn-ws-connect');
+            if (APP_STATE.wsConnected && APP_STATE.ws) {
+                APP_STATE.ws.close();
+                APP_STATE.wsConnected = false;
+                btn.textContent = '🔌 Connect FastAPI Server (ws://localhost:8000/ws)';
+                return;
+            }
+            try {
+                const ws = new WebSocket('ws://localhost:8000/ws');
+                ws.onopen = () => {
+                    APP_STATE.wsConnected = true;
+                    APP_STATE.ws = ws;
+                    btn.textContent = '🟢 Connected to FastAPI Server (60Hz Stream)';
+                    document.getElementById('engine-mode-badge').textContent = 'FastAPI WebSocket Live';
+                };
+                ws.onmessage = (ev) => {
+                    const data = JSON.parse(ev.data);
+                    SIM_STATE.tick = data.tick;
+                    SIM_STATE.checksum = data.hash;
+                    SIM_STATE.scoreBlue = data.score.blue;
+                    SIM_STATE.scoreRed = data.score.red;
+                    SIM_STATE.ball.x = data.ball.x;
+                    SIM_STATE.ball.y = data.ball.y;
+                    SIM_STATE.ball.z = data.ball.z;
+                };
+                ws.onerror = () => {
+                    APP_STATE.wsConnected = false;
+                    btn.textContent = '⚡ Local 240Hz Engine Active (Server Offline)';
+                };
+                ws.onclose = () => {
+                    APP_STATE.wsConnected = false;
+                };
+            } catch (e) {
+                APP_STATE.wsConnected = false;
+            }
+        }
+
+        // -------------------------------------------------------------------
+        // 13. MAIN TAB NAVIGATION & BOOTSTRAP
+        // -------------------------------------------------------------------
+        function switchMainTab(tabId) {
+            APP_STATE.activeTab = tabId;
+            const tabs = ['match', 'tactics', 'squad', 'career', 'telemetry'];
+            tabs.forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`nav-btn-${t}`);
+                if (view) {
+                    if (t === tabId) view.classList.remove('hidden');
+                    else view.classList.add('hidden');
+                }
+                if (btn) {
+                    btn.className = t === tabId
+                        ? 'px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow'
+                        : 'px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300 hover:text-white hover:bg-slate-800';
+                }
+            });
+
+            if (tabId === 'match') {
+                setTimeout(onViewportResize, 20);
+            } else if (tabId === 'tactics') {
+                renderFcIqRolesList();
+                updateTacticalBoardPreview();
+            } else if (tabId === 'squad') {
+                renderUltimateSquadView();
+            } else if (tabId === 'career') {
+                renderCareerView();
+            } else if (tabId === 'telemetry') {
+                initTelemetryCharts();
+                renderMatchTelemetryStatsAndShotMap();
+            }
+        }
+
+        window.onload = function() {
+            spawnMatchPlayers();
+            initThreeStadium();
+            updateActivePlayerHudStrip();
+            renderFcIqRolesList();
+            renderUltimateSquadView();
+            renderCareerView();
+            animateLoop();
+        };
     </script>
 </body>
 </html>
